@@ -9,4 +9,4 @@ const APIKeyDemo = "demo"
 const DemoAPIKeyAllowedStart = 1577836800 * time.Second
 
 // DemoAPIKeyAllowedEnd is the end date of range of time that data is allowed to be fetched using demo apikey
-const DemoAPIKeyAllowedEnd = (1577836800 + 60*60*24) * time.Second
+const DemoAPIKeyAllowedEnd = (1577836800 + 60*60) * time.Second
