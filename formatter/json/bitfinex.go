@@ -134,7 +134,7 @@ func (f *BitfinexFormatter) formatTrades(channel string, line []byte) (formatted
 		price := order[3].(float64)
 
 		// convert timestamp into nanosec
-		timestamp := fmt.Sprintf("%d", millisecTimestamp*1000000000)
+		timestamp := fmt.Sprintf("%d", millisecTimestamp*1000000)
 
 		var marshaled []byte
 		marshaled, err = json.Marshal(jsondef.BitfinexTrades{

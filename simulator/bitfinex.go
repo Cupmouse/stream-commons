@@ -106,11 +106,11 @@ func (g *BitfinexSimulator) processOrderBookL2Orders(channel string, ordersInter
 func (g *BitfinexSimulator) ProcessMessage(line []byte) (channel string, err error) {
 	channel = ChannelUnknown
 
-	subscribedStruct := jsonstructs.BitfinexSubscribed{}
+	subscribedStruct := new(jsonstructs.BitfinexSubscribed)
 	// this might produce error as object could be an array
 	// json.Unmarshal gives error when it tries to unmarshal array
 	// into a struct
-	err = json.Unmarshal(line, &subscribedStruct)
+	err = json.Unmarshal(line, subscribedStruct)
 	if err == nil {
 		if subscribedStruct.Event != "subscribed" {
 			// Event == error or info
