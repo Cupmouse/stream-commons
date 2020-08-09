@@ -36,8 +36,10 @@ func init() {
 	formatters["bitflyer"] = make(map[string]Formatter)
 	formatters["bitfinex"] = make(map[string]Formatter)
 	formatters["bitmex"] = make(map[string]Formatter)
+	formatters["binance"] = make(map[string]Formatter)
 
 	formatters["bitflyer"]["json"] = &json.BitflyerFormatter{}
 	formatters["bitfinex"]["json"] = &json.BitfinexFormatter{}
 	formatters["bitmex"]["json"] = &json.BitmexFormatter{}
+	formatters["binance"]["json"] = &json.BinanceFormatter{}
 }

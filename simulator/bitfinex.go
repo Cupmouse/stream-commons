@@ -2,11 +2,13 @@ package simulator
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"reflect"
 	"sort"
 	"strings"
 
+	"github.com/exchangedataset/streamcommons"
 	"github.com/exchangedataset/streamcommons/jsonstructs"
 )
 
@@ -15,8 +17,8 @@ type bitfinexBookElement struct {
 	amount float64
 }
 
-// BitfinexSimulator generates a snapshot from data feeded
-type BitfinexSimulator struct {
+// bitfinexSimulator generates a snapshot from data feeded
+type bitfinexSimulator struct {
 	filterChannel map[string]bool
 	// map[chanID]channel
 	subscribed map[int]string
@@ -25,22 +27,22 @@ type BitfinexSimulator struct {
 }
 
 // ProcessSend processes send message sent from client and returns associated channel
-func (g *BitfinexSimulator) ProcessSend(line []byte) (channel string, err error) {
-	channel = ChannelUnknown
-
+func (s *bitfinexSimulator) ProcessSend(line []byte) (channel string, err error) {
+	channel = streamcommons.ChannelUnknown
 	subscribe := new(jsonstructs.BitfinexSubscribe)
 	err = json.Unmarshal(line, subscribe)
-
+	if err != nil {
+		return
+	}
 	channel = fmt.Sprintf("%s_%s", subscribe.Channel, subscribe.Symbol)
-
 	return
 }
 
-func (g *BitfinexSimulator) processOrderBookL2Orders(channel string, ordersInterf interface{}) (err error) {
-	memOrderBook, ok := g.orderBooks[channel]
+func (s *bitfinexSimulator) processOrderBookL2Orders(channel string, ordersInterf interface{}) (err error) {
+	memOrderBook, ok := s.orderBooks[channel]
 	if !ok {
-		g.orderBooks[channel] = make(map[float64]bitfinexBookElement)
-		memOrderBook = g.orderBooks[channel]
+		s.orderBooks[channel] = make(map[float64]bitfinexBookElement)
+		memOrderBook = s.orderBooks[channel]
 	}
 
 	var orders []jsonstructs.BitfinexBookOrder
@@ -49,24 +51,20 @@ func (g *BitfinexSimulator) processOrderBookL2Orders(channel string, ordersInter
 	case [][]interface{}:
 		// probably made in golang
 		orders = ordersInterf.([][]interface{})
-		break
 	case []interface{}:
 		ordersInterfs := ordersInterf.([]interface{})
 		switch ordersInterfs[0].(type) {
 		case float64:
 			// only one order
 			orders = []jsonstructs.BitfinexBookOrder{ordersInterfs}
-			break
 		case []interface{}:
 			orders = make([]jsonstructs.BitfinexBookOrder, len(ordersInterfs))
 			for i, order := range ordersInterfs {
 				orders[i] = order.(jsonstructs.BitfinexBookOrder)
 			}
-			break
 		default:
 			return fmt.Errorf("invalid type for order: %s", reflect.TypeOf(ordersInterfs))
 		}
-		break
 	default:
 		return fmt.Errorf("invalid type for ordersInterf: %s", reflect.TypeOf(ordersInterf))
 	}
@@ -102,10 +100,9 @@ func (g *BitfinexSimulator) processOrderBookL2Orders(channel string, ordersInter
 	return nil
 }
 
-// ProcessMessage processes message line from datasets and keep track of a internal state
-func (g *BitfinexSimulator) ProcessMessage(line []byte) (channel string, err error) {
-	channel = ChannelUnknown
-
+// ProcessMessageWebSocket processes message line from datasets and keep track of a internal state
+func (s *bitfinexSimulator) ProcessMessageWebSocket(line []byte) (channel string, err error) {
+	channel = streamcommons.ChannelUnknown
 	subscribedStruct := new(jsonstructs.BitfinexSubscribed)
 	// this might produce error as object could be an array
 	// json.Unmarshal gives error when it tries to unmarshal array
@@ -124,25 +121,23 @@ func (g *BitfinexSimulator) ProcessMessage(line []byte) (channel string, err err
 		// this is a subscribed response message from bitfinex
 		// store channel id and its name into subscribed map
 		channel = fmt.Sprintf("%s_%s", subscribedStruct.Channel, subscribedStruct.Symbol)
-		if g.filterChannel == nil {
-			g.subscribed[subscribedStruct.ChanID] = channel
+		if s.filterChannel == nil {
+			s.subscribed[subscribedStruct.ChanID] = channel
 		} else {
-			_, ok := g.filterChannel[channel]
+			_, ok := s.filterChannel[channel]
 			if ok {
-				g.subscribed[subscribedStruct.ChanID] = channel
+				s.subscribed[subscribedStruct.ChanID] = channel
 			}
 		}
 		return
 	}
-
 	decoded := make([]interface{}, 0, 5)
 	err = json.Unmarshal(line, &decoded)
 	if err != nil {
 		return
 	}
 	chanID := int(decoded[0].(float64))
-	channel = g.subscribed[chanID]
-
+	channel = s.subscribed[chanID]
 	if strings.HasPrefix(channel, "book_") {
 		switch decoded[1].(type) {
 		case string:
@@ -152,16 +147,27 @@ func (g *BitfinexSimulator) ProcessMessage(line []byte) (channel string, err err
 			}
 			return channel, fmt.Errorf("wrong string as a heartbeat: %s", decoded[1].(string))
 		default:
-			return channel, g.processOrderBookL2Orders(channel, decoded[1])
+			return channel, s.processOrderBookL2Orders(channel, decoded[1])
 		}
 	}
 	// other channels are ignored as it does not have a state
 	return
 }
 
+func (s *bitfinexSimulator) ProcessMessageChannelKnown(channel string, line []byte) error {
+	wsChannel, serr := s.ProcessMessageWebSocket(line)
+	if serr != nil {
+		return serr
+	}
+	if wsChannel != channel {
+		return fmt.Errorf("channel differs: %v, expected: %v", wsChannel, channel)
+	}
+	return nil
+}
+
 // ProcessState processes state line from a datasets
-func (g *BitfinexSimulator) ProcessState(channel string, line []byte) (err error) {
-	if channel == StateChannelSubscribed {
+func (s *bitfinexSimulator) ProcessState(channel string, line []byte) (err error) {
+	if channel == streamcommons.StateChannelSubscribed {
 		decoded := make(jsonstructs.BitfinexStatusSubscribed)
 		err = json.Unmarshal(line, &decoded)
 		if err != nil {
@@ -169,12 +175,12 @@ func (g *BitfinexSimulator) ProcessState(channel string, line []byte) (err error
 		}
 		// register subscribed channels
 		for ch, chanID := range decoded {
-			if g.filterChannel == nil {
-				g.subscribed[chanID] = ch
+			if s.filterChannel == nil {
+				s.subscribed[chanID] = ch
 			} else {
-				_, ok := g.filterChannel[ch]
+				_, ok := s.filterChannel[ch]
 				if ok {
-					g.subscribed[chanID] = ch
+					s.subscribed[chanID] = ch
 				}
 			}
 		}
@@ -182,8 +188,8 @@ func (g *BitfinexSimulator) ProcessState(channel string, line []byte) (err error
 	}
 
 	// from here we process message, if channel is not in filter-in map then return
-	if g.filterChannel != nil {
-		_, ok := g.filterChannel[channel]
+	if s.filterChannel != nil {
+		_, ok := s.filterChannel[channel]
 		if !ok {
 			return
 		}
@@ -197,7 +203,7 @@ func (g *BitfinexSimulator) ProcessState(channel string, line []byte) (err error
 		if err != nil {
 			return
 		}
-		err = g.processOrderBookL2Orders(channel, decoded)
+		err = s.processOrderBookL2Orders(channel, decoded)
 		return
 	}
 
@@ -238,11 +244,16 @@ func sortBitfinexBook(m map[float64]bitfinexBookElement) []float64 {
 }
 
 // TakeStateSnapshot takes a snapshot of current state and return as state line
-func (g *BitfinexSimulator) TakeStateSnapshot() (snapshots []Snapshot, err error) {
+func (s *bitfinexSimulator) TakeStateSnapshot() (snapshots []Snapshot, err error) {
+	if s.filterChannel != nil {
+		// If channel filtering is enabled, this should not be called
+		err = errors.New("channel filter is enabled")
+		return
+	}
 	snapshots = make([]Snapshot, 0, 5)
 
 	subscribed := make(jsonstructs.BitfinexStatusSubscribed)
-	for channel, chanID := range g.subscribed {
+	for channel, chanID := range s.subscribed {
 		subscribed[chanID] = channel
 	}
 	var subscribedMarshaled []byte
@@ -250,10 +261,13 @@ func (g *BitfinexSimulator) TakeStateSnapshot() (snapshots []Snapshot, err error
 	if err != nil {
 		return
 	}
-	snapshots = append(snapshots, Snapshot{Channel: StateChannelSubscribed, Snapshot: subscribedMarshaled})
+	snapshots = append(snapshots, Snapshot{
+		Channel:  streamcommons.StateChannelSubscribed,
+		Snapshot: subscribedMarshaled,
+	})
 
-	for _, channel := range sortBitfinexBooks(g.orderBooks) {
-		memOrderBook := g.orderBooks[channel]
+	for _, channel := range sortBitfinexBooks(s.orderBooks) {
+		memOrderBook := s.orderBooks[channel]
 
 		orders := make([]jsonstructs.BitfinexBookOrder, len(memOrderBook))
 		i := 0
@@ -274,12 +288,12 @@ func (g *BitfinexSimulator) TakeStateSnapshot() (snapshots []Snapshot, err error
 }
 
 // TakeSnapshot takes a snapshot of current state and return
-func (g *BitfinexSimulator) TakeSnapshot() (snapshots []Snapshot, err error) {
+func (s *bitfinexSimulator) TakeSnapshot() (snapshots []Snapshot, err error) {
 	snapshots = make([]Snapshot, 0, 5)
 
 	// subscribed
-	for _, chanID := range sortBitfinexSubscribed(g.subscribed) {
-		channel := g.subscribed[chanID]
+	for _, chanID := range sortBitfinexSubscribed(s.subscribed) {
+		channel := s.subscribed[chanID]
 		// this is needed to extract symbol and pair
 		ind := strings.Index(channel, "_")
 		bitfCh := channel[:ind]
@@ -302,10 +316,10 @@ func (g *BitfinexSimulator) TakeSnapshot() (snapshots []Snapshot, err error) {
 	}
 
 	// book channels
-	for _, channel := range sortBitfinexBooks(g.orderBooks) {
-		memOrderBook := g.orderBooks[channel]
+	for _, channel := range sortBitfinexBooks(s.orderBooks) {
+		memOrderBook := s.orderBooks[channel]
 		chanID := -1
-		for subChanID, subChan := range g.subscribed {
+		for subChanID, subChan := range s.subscribed {
 			if subChan == channel {
 				chanID = subChanID
 				break
@@ -349,7 +363,7 @@ func (g *BitfinexSimulator) TakeSnapshot() (snapshots []Snapshot, err error) {
 }
 
 func newBitfinexSimulator(filterChannel []string) Simulator {
-	gen := BitfinexSimulator{}
+	gen := bitfinexSimulator{}
 	if filterChannel != nil {
 		gen.filterChannel = make(map[string]bool)
 		for _, ch := range filterChannel {

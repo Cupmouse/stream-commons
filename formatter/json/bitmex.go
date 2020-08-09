@@ -9,11 +9,11 @@ import (
 	"github.com/exchangedataset/streamcommons/jsonstructs"
 )
 
-// BitmexFormatter formats message from bitmex
-type BitmexFormatter struct {
+// bitmexFormatter formats message from bitmex
+type bitmexFormatter struct {
 }
 
-func (f *BitmexFormatter) formatOrderBookL2(dataRaw json.RawMessage) (ret [][]byte, err error) {
+func (f *bitmexFormatter) formatOrderBookL2(dataRaw json.RawMessage) (ret [][]byte, err error) {
 	orders := make([]jsonstructs.BitmexOrderBookL2DataElement, 0, 10)
 	serr := json.Unmarshal(dataRaw, &orders)
 	if serr != nil {
@@ -43,7 +43,7 @@ func (f *BitmexFormatter) formatOrderBookL2(dataRaw json.RawMessage) (ret [][]by
 	return
 }
 
-func (f *BitmexFormatter) formatTrade(dataRaw json.RawMessage) (ret [][]byte, err error) {
+func (f *bitmexFormatter) formatTrade(dataRaw json.RawMessage) (ret [][]byte, err error) {
 	orders := make([]jsonstructs.BitmexTradeDataElement, 0, 10)
 	serr := json.Unmarshal(dataRaw, &orders)
 	if serr != nil {
@@ -77,7 +77,7 @@ func (f *BitmexFormatter) formatTrade(dataRaw json.RawMessage) (ret [][]byte, er
 	return
 }
 
-func (f *BitmexFormatter) formatInstrument(dataRaw json.RawMessage) (ret [][]byte, err error) {
+func (f *bitmexFormatter) formatInstrument(dataRaw json.RawMessage) (ret [][]byte, err error) {
 	instruments := make([]jsonstructs.BitmexInstrumentDataElem, 0, 10)
 	serr := json.Unmarshal(dataRaw, &instruments)
 	if serr != nil {
@@ -283,7 +283,7 @@ func (f *BitmexFormatter) formatInstrument(dataRaw json.RawMessage) (ret [][]byt
 	return
 }
 
-func (f *BitmexFormatter) formatLiquidation(dataRaw json.RawMessage) (ret [][]byte, err error) {
+func (f *bitmexFormatter) formatLiquidation(dataRaw json.RawMessage) (ret [][]byte, err error) {
 	liquidations := make([]jsonstructs.BitmexLiquidationDataElement, 0, 10)
 	serr := json.Unmarshal(dataRaw, &liquidations)
 	if serr != nil {
@@ -309,7 +309,7 @@ func (f *BitmexFormatter) formatLiquidation(dataRaw json.RawMessage) (ret [][]by
 	return
 }
 
-func (f *BitmexFormatter) formatSettlement(dataRaw json.RawMessage) (ret [][]byte, err error) {
+func (f *bitmexFormatter) formatSettlement(dataRaw json.RawMessage) (ret [][]byte, err error) {
 	settlements := make([]jsonstructs.BitmexSettlementDataElement, 0, 10)
 	serr := json.Unmarshal(dataRaw, &settlements)
 	if serr != nil {
@@ -339,7 +339,7 @@ func (f *BitmexFormatter) formatSettlement(dataRaw json.RawMessage) (ret [][]byt
 	return
 }
 
-func (f *BitmexFormatter) formatInsurance(dataRaw json.RawMessage) (ret [][]byte, err error) {
+func (f *bitmexFormatter) formatInsurance(dataRaw json.RawMessage) (ret [][]byte, err error) {
 	insurances := make([]jsonstructs.BitmexInsuranceDataElement, 0, 10)
 	serr := json.Unmarshal(dataRaw, &insurances)
 	if serr != nil {
@@ -363,7 +363,7 @@ func (f *BitmexFormatter) formatInsurance(dataRaw json.RawMessage) (ret [][]byte
 	return
 }
 
-func (f *BitmexFormatter) formatFunding(dataRaw json.RawMessage) (ret [][]byte, err error) {
+func (f *bitmexFormatter) formatFunding(dataRaw json.RawMessage) (ret [][]byte, err error) {
 	fundings := make([]jsonstructs.BitmexFundingDataElement, 0, 10)
 	serr := json.Unmarshal(dataRaw, &fundings)
 	if serr != nil {
@@ -397,7 +397,7 @@ func (f *BitmexFormatter) formatFunding(dataRaw json.RawMessage) (ret [][]byte, 
 }
 
 // Format formats incoming message given and returns formatted strings
-func (f *BitmexFormatter) Format(channel string, line []byte) (ret [][]byte, err error) {
+func (f *bitmexFormatter) Format(channel string, line []byte) (ret [][]byte, err error) {
 	subscribed := jsonstructs.BitmexSubscribe{}
 	serr := json.Unmarshal(line, &subscribed)
 	if serr != nil {
@@ -455,7 +455,7 @@ func (f *BitmexFormatter) Format(channel string, line []byte) (ret [][]byte, err
 }
 
 // IsSupported returns true if given channel is supported to be formatted using this formatter
-func (f *BitmexFormatter) IsSupported(channel string) bool {
+func (f *bitmexFormatter) IsSupported(channel string) bool {
 	return channel == "orderBookL2" || channel == "trade" || channel == "instrument" ||
 		channel == "liquidation" || channel == "settlement" || channel == "insurance" ||
 		channel == "funding"

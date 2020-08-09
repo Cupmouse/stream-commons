@@ -2,10 +2,12 @@ package simulator
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"sort"
 	"strings"
 
+	"github.com/exchangedataset/streamcommons"
 	"github.com/exchangedataset/streamcommons/jsonstructs"
 )
 
@@ -20,25 +22,25 @@ type bitflyerSimulator struct {
 	orderBooks map[string]map[string]map[float64]float64
 }
 
-func (g *bitflyerSimulator) processOrders(channel string, message *jsonstructs.BitflyerBoardParamsMessage) {
+func (s *bitflyerSimulator) processOrders(channel string, message *jsonstructs.BitflyerBoardParamsMessage) {
 	for _, ask := range message.Asks {
 		if ask.Size == 0 {
-			delete(g.orderBooks[channel]["asks"], ask.Price)
+			delete(s.orderBooks[channel]["asks"], ask.Price)
 		} else {
-			g.orderBooks[channel]["asks"][ask.Price] = ask.Size
+			s.orderBooks[channel]["asks"][ask.Price] = ask.Size
 		}
 	}
 	for _, bid := range message.Bids {
 		if bid.Size == 0 {
-			delete(g.orderBooks[channel]["bids"], bid.Price)
+			delete(s.orderBooks[channel]["bids"], bid.Price)
 		} else {
-			g.orderBooks[channel]["bids"][bid.Price] = bid.Size
+			s.orderBooks[channel]["bids"][bid.Price] = bid.Size
 		}
 	}
 }
 
-func (g *bitflyerSimulator) ProcessSend(line []byte) (channel string, err error) {
-	channel = ChannelUnknown
+func (s *bitflyerSimulator) ProcessSend(line []byte) (channel string, err error) {
+	channel = streamcommons.ChannelUnknown
 
 	subscribe := new(jsonstructs.BitflyerSubscribe)
 	err = json.Unmarshal(line, subscribe)
@@ -47,13 +49,13 @@ func (g *bitflyerSimulator) ProcessSend(line []byte) (channel string, err error)
 	}
 	channel = subscribe.Params.Channel
 	// store id and channel pair
-	g.idvch[subscribe.ID] = channel
+	s.idvch[subscribe.ID] = channel
 
 	return channel, nil
 }
 
-func (g *bitflyerSimulator) ProcessMessage(line []byte) (channel string, err error) {
-	channel = ChannelUnknown
+func (s *bitflyerSimulator) ProcessMessageWebSocket(line []byte) (channel string, err error) {
+	channel = streamcommons.ChannelUnknown
 
 	subscribedUnmarshaled := new(jsonstructs.BitflyerSubscribed)
 	err = json.Unmarshal(line, subscribedUnmarshaled)
@@ -62,14 +64,14 @@ func (g *bitflyerSimulator) ProcessMessage(line []byte) (channel string, err err
 	}
 	if subscribedUnmarshaled.Result {
 		// response to a subscribe request
-		channel = g.idvch[subscribedUnmarshaled.ID]
-		if g.filterChannel != nil {
-			_, ok := g.filterChannel[channel]
+		channel = s.idvch[subscribedUnmarshaled.ID]
+		if s.filterChannel != nil {
+			_, ok := s.filterChannel[channel]
 			if !ok {
 				return
 			}
 		}
-		g.subscribed = append(g.subscribed, channel)
+		s.subscribed = append(s.subscribed, channel)
 		return
 	}
 
@@ -83,11 +85,11 @@ func (g *bitflyerSimulator) ProcessMessage(line []byte) (channel string, err err
 	if strings.HasPrefix(channel, "lightning_board_") {
 		if strings.HasPrefix(channel, "lightning_board_snapshot_") {
 			// if channel is board snapshot, then remove all orders and start again
-			g.orderBooks[channel] = make(map[string]map[float64]float64)
-			g.orderBooks[channel]["asks"] = make(map[float64]float64)
-			g.orderBooks[channel]["bids"] = make(map[float64]float64)
+			s.orderBooks[channel] = make(map[string]map[float64]float64)
+			s.orderBooks[channel]["asks"] = make(map[float64]float64)
+			s.orderBooks[channel]["bids"] = make(map[float64]float64)
 		}
-		if g.orderBooks[channel] == nil {
+		if s.orderBooks[channel] == nil {
 			// snapshot is not received (lightning_board can be sent ealier than lightning_board_snapshot)
 			return
 		}
@@ -96,34 +98,45 @@ func (g *bitflyerSimulator) ProcessMessage(line []byte) (channel string, err err
 		if err != nil {
 			return
 		}
-		g.processOrders(channel, message)
+		s.processOrders(channel, message)
 	}
 	return
 }
 
-func (g *bitflyerSimulator) ProcessState(channel string, line []byte) (err error) {
-	if channel == StateChannelSubscribed {
-		decoded := jsonstructs.BitflyerStateSubscribed{}
-		err = json.Unmarshal(line, &decoded)
+func (s *bitflyerSimulator) ProcessMessageChannelKnown(channel string, line []byte) error {
+	wsChannel, serr := s.ProcessMessageWebSocket(line)
+	if serr != nil {
+		return serr
+	}
+	if wsChannel != channel {
+		return fmt.Errorf("channel differs: %v, expected: %v", wsChannel, channel)
+	}
+	return nil
+}
+
+func (s *bitflyerSimulator) ProcessState(channel string, line []byte) (err error) {
+	if channel == streamcommons.StateChannelSubscribed {
+		subscribed := make(jsonstructs.BitflyerStateSubscribed, 0, 50)
+		err = json.Unmarshal(line, &subscribed)
 		if err != nil {
 			return
 		}
-		for _, subscCh := range decoded {
-			// add only target channel
-			if g.filterChannel != nil {
-				_, ok := g.filterChannel[subscCh]
+		if s.filterChannel == nil {
+			s.subscribed = subscribed
+		} else {
+			// Add only target channels
+			for _, subChannel := range subscribed {
+				_, ok := s.filterChannel[subChannel]
 				if ok {
-					g.subscribed = append(g.subscribed, subscCh)
+					s.subscribed = append(s.subscribed, subChannel)
 				}
-			} else {
-				g.subscribed = append(g.subscribed, subscCh)
 			}
 		}
 		return
 	}
 
-	if g.filterChannel != nil {
-		_, ok := g.filterChannel[channel]
+	if s.filterChannel != nil {
+		_, ok := s.filterChannel[channel]
 		if !ok {
 			return
 		}
@@ -131,16 +144,16 @@ func (g *bitflyerSimulator) ProcessState(channel string, line []byte) (err error
 
 	if strings.HasPrefix(channel, "lightning_board_snapshot_") {
 		// dont forget to initalize orderbook map
-		g.orderBooks[channel] = make(map[string]map[float64]float64)
-		g.orderBooks[channel]["asks"] = make(map[float64]float64)
-		g.orderBooks[channel]["bids"] = make(map[float64]float64)
+		s.orderBooks[channel] = make(map[string]map[float64]float64)
+		s.orderBooks[channel]["asks"] = make(map[float64]float64)
+		s.orderBooks[channel]["bids"] = make(map[float64]float64)
 
 		message := new(jsonstructs.BitflyerBoardParamsMessage)
 		serr := json.Unmarshal(line, message)
 		if serr != nil {
 			return fmt.Errorf("unmarshal failed for params.message of state: %s", serr.Error())
 		}
-		g.processOrders(channel, message)
+		s.processOrders(channel, message)
 	}
 
 	return nil
@@ -168,8 +181,8 @@ func sortBitflyerPrice(m map[float64]float64) []float64 {
 	return keys
 }
 
-func (g *bitflyerSimulator) takeOrderBookL2MessageSnapshot(channel string) (messageMarshaled []byte, err error) {
-	memOrderBook := g.orderBooks[channel]
+func (s *bitflyerSimulator) takeOrderBookL2MessageSnapshot(channel string) (messageMarshaled []byte, err error) {
+	memOrderBook := s.orderBooks[channel]
 	message := new(jsonstructs.BitflyerBoardParamsMessage)
 
 	memAsks := memOrderBook["asks"]
@@ -196,25 +209,36 @@ func (g *bitflyerSimulator) takeOrderBookL2MessageSnapshot(channel string) (mess
 	return
 }
 
-func (g *bitflyerSimulator) TakeStateSnapshot() (snapshots []Snapshot, err error) {
+func (s *bitflyerSimulator) TakeStateSnapshot() (snapshots []Snapshot, err error) {
+	if s.filterChannel != nil {
+		// If channel filtering is enabled, this should not be called
+		err = errors.New("channel filter is enabled")
+		return
+	}
 	snapshots = make([]Snapshot, 0, 5)
 
 	// snapshot subscribed channels: list of channel names
 	var subscribedMarshaled []byte
-	subscribedMarshaled, err = json.Marshal(g.subscribed)
+	subscribedMarshaled, err = json.Marshal(s.subscribed)
 	if err != nil {
 		return
 	}
-	snapshots = append(snapshots, Snapshot{Channel: StateChannelSubscribed, Snapshot: subscribedMarshaled})
+	snapshots = append(snapshots, Snapshot{
+		Channel:  streamcommons.StateChannelSubscribed,
+		Snapshot: subscribedMarshaled,
+	})
 
 	return
 }
 
-func (g *bitflyerSimulator) TakeSnapshot() (snapshots []Snapshot, err error) {
+func (s *bitflyerSimulator) TakeSnapshot() (snapshots []Snapshot, err error) {
 	snapshots = make([]Snapshot, 0, 5)
 
 	// generate response message for subscribed channels
-	for i, channel := range g.subscribed {
+	sortedSubscibed := make([]string, len(s.subscribed))
+	copy(sortedSubscibed, s.subscribed)
+	sort.Strings(sortedSubscibed)
+	for i, channel := range sortedSubscibed {
 		subscr := new(jsonstructs.BitflyerSubscribed)
 		subscr.Initialize()
 		subscr.ID = i
@@ -228,14 +252,14 @@ func (g *bitflyerSimulator) TakeSnapshot() (snapshots []Snapshot, err error) {
 		snapshots = append(snapshots, Snapshot{Channel: channel, Snapshot: marshaled})
 	}
 
-	for _, channel := range sortBitflyerOrderbooks(g.orderBooks) {
+	for _, channel := range sortBitflyerOrderbooks(s.orderBooks) {
 		book := new(jsonstructs.BitflyerRoot)
 		// this is needed to initialize the constant value
 		book.Initialize()
 		book.Params.Channel = channel
 
 		var messageMarshaled []byte
-		messageMarshaled, err = g.takeOrderBookL2MessageSnapshot(channel)
+		messageMarshaled, err = s.takeOrderBookL2MessageSnapshot(channel)
 		if err != nil {
 			return
 		}

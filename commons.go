@@ -6,10 +6,22 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"strings"
 	"unsafe"
 
 	"github.com/aws/aws-lambda-go/events"
 )
+
+// BinanceDecomposeChannel decomposes a given channel name into a symbol name, stream name.
+// If the given channel name does not have either one, it returns error.
+func BinanceDecomposeChannel(channel string) (symbol string, stream string, err error) {
+	index := strings.IndexRune(channel, '@')
+	if index == -1 || index == len(channel)-1 {
+		err = errors.New("channel does not have stream name")
+		return
+	}
+	return channel[:index], channel[index+1:], nil
+}
 
 // MakeResponse generates response with statusCode as HTTP status code and body
 func MakeResponse(statusCode int, body string) *events.APIGatewayProxyResponse {

@@ -2,9 +2,11 @@ package simulator
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"sort"
 
+	"github.com/exchangedataset/streamcommons"
 	"github.com/exchangedataset/streamcommons/jsonstructs"
 )
 
@@ -34,7 +36,7 @@ type bitmexSimulator struct {
 
 func (g *bitmexSimulator) ProcessSend(line []byte) (channel string, err error) {
 	// this should not be called
-	return ChannelUnknown, nil
+	return streamcommons.ChannelUnknown, nil
 }
 
 func (g *bitmexSimulator) processData(action string, dataSlice []jsonstructs.BitmexOrderBookL2DataElement) error {
@@ -109,8 +111,8 @@ func (g *bitmexSimulator) processData(action string, dataSlice []jsonstructs.Bit
 	return nil
 }
 
-func (g *bitmexSimulator) ProcessMessage(line []byte) (channel string, err error) {
-	channel = ChannelUnknown
+func (g *bitmexSimulator) ProcessMessageWebSocket(line []byte) (channel string, err error) {
+	channel = streamcommons.ChannelUnknown
 
 	// check if this message is a response to subscribe
 	subscribe := jsonstructs.BitmexSubscribe{}
@@ -165,8 +167,19 @@ func (g *bitmexSimulator) ProcessMessage(line []byte) (channel string, err error
 	return
 }
 
+func (g *bitmexSimulator) ProcessMessageChannelKnown(channel string, line []byte) error {
+	wsChannel, serr := g.ProcessMessageWebSocket(line)
+	if serr != nil {
+		return serr
+	}
+	if wsChannel != channel {
+		return fmt.Errorf("channel differs: %v, expected: %v", wsChannel, channel)
+	}
+	return nil
+}
+
 func (g *bitmexSimulator) ProcessState(channel string, line []byte) (err error) {
-	if channel == StateChannelSubscribed {
+	if channel == streamcommons.StateChannelSubscribed {
 		// add to subscribed
 		subscribed := jsonstructs.BitmexStateSubscribed{}
 		err = json.Unmarshal(line, &subscribed)
@@ -270,6 +283,11 @@ func (g *bitmexSimulator) orderBookL2DataElements() []jsonstructs.BitmexOrderBoo
 }
 
 func (g *bitmexSimulator) TakeStateSnapshot() (snapshots []Snapshot, err error) {
+	if g.filterChannel != nil {
+		// If channel filtering is enabled, this should not be called
+		err = errors.New("channel filter is enabled")
+		return
+	}
 	snapshots = make([]Snapshot, 0, 5)
 
 	// list subscribed channels
@@ -282,7 +300,7 @@ func (g *bitmexSimulator) TakeStateSnapshot() (snapshots []Snapshot, err error) 
 	if err != nil {
 		return nil, fmt.Errorf("error on json marshal: %s", err.Error())
 	}
-	snapshots = append(snapshots, Snapshot{Channel: StateChannelSubscribed, Snapshot: subListMarshaled})
+	snapshots = append(snapshots, Snapshot{Channel: streamcommons.StateChannelSubscribed, Snapshot: subListMarshaled})
 
 	data := g.orderBookL2DataElements()
 	var orderBookL2ElementsMarshaled []byte
