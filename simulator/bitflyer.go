@@ -22,6 +22,10 @@ type bitflyerSimulator struct {
 	orderBooks map[string]map[string]map[float64]float64
 }
 
+func (s *bitflyerSimulator) ProcessStart(line []byte) error {
+	return nil
+}
+
 func (s *bitflyerSimulator) processOrders(channel string, message *jsonstructs.BitflyerBoardParamsMessage) {
 	for _, ask := range message.Asks {
 		if ask.Size == 0 {

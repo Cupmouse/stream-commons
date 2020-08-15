@@ -12,13 +12,15 @@ type Snapshot struct {
 
 // Simulator takes in message from exchange and chases the state and generates snapshot.
 type Simulator interface {
+	// ProcessStart processes start line who usually include connection URL.
+	ProcessStart(line []byte) (err error)
 	// ProcessSend processes send message line and returns the channel associated with.
 	ProcessSend(line []byte) (channel string, err error)
 	// ProcessMessageWebSocket processes a message from WebSocket and returns the channel associated with.
 	// Other messages should not be inputted.
 	ProcessMessageWebSocket(line []byte) (channel string, err error)
 	// ProcessMessageChannelKnown is the same as `ProcessMessageWebSocket`, but should always be used
-	// instead of it if the caller knows the channel from which the line is produced.
+	// instead if the caller knows the channel from which the line is produced.
 	// As a message, both message via REST or WebSocket is expected.
 	ProcessMessageChannelKnown(channel string, line []byte) (err error)
 	// ProcessState processes a state line, this should normally be called first

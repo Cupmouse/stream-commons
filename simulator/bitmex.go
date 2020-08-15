@@ -34,19 +34,23 @@ type bitmexSimulator struct {
 	orderBooks map[string]map[string]map[int64]bitmexOrderBookL2Element
 }
 
-func (g *bitmexSimulator) ProcessSend(line []byte) (channel string, err error) {
+func (s *bitmexSimulator) ProcessStart(line []byte) error {
+	return nil
+}
+
+func (s *bitmexSimulator) ProcessSend(line []byte) (channel string, err error) {
 	// this should not be called
 	return streamcommons.ChannelUnknown, nil
 }
 
-func (g *bitmexSimulator) processData(action string, dataSlice []jsonstructs.BitmexOrderBookL2DataElement) error {
+func (s *bitmexSimulator) processData(action string, dataSlice []jsonstructs.BitmexOrderBookL2DataElement) error {
 	for _, data := range dataSlice {
 		if action == "partial" || action == "insert" {
-			sides, ok := g.orderBooks[data.Symbol]
+			sides, ok := s.orderBooks[data.Symbol]
 			if !ok {
 				// symbol is not yet pushed, create new map
 				sides = make(map[string]map[int64]bitmexOrderBookL2Element)
-				g.orderBooks[data.Symbol] = sides
+				s.orderBooks[data.Symbol] = sides
 			}
 			ids, ok := sides[data.Side]
 			if !ok {
@@ -94,16 +98,16 @@ func (g *bitmexSimulator) processData(action string, dataSlice []jsonstructs.Bit
 			// update for element, it can expect element to be there already,
 			// so map is already prepared
 			// map returns-by-value it needs to replace value after you updated it
-			elem, ok := g.orderBooks[data.Symbol][data.Side][data.ID]
+			elem, ok := s.orderBooks[data.Symbol][data.Side][data.ID]
 			if ok {
 				elem.size = data.Size
-				g.orderBooks[data.Symbol][data.Side][data.ID] = elem
+				s.orderBooks[data.Symbol][data.Side][data.ID] = elem
 			} else {
 				fmt.Println("order id not found")
 			}
 		} else if action == "delete" {
 			// delete element
-			delete(g.orderBooks[data.Symbol][data.Side], data.ID)
+			delete(s.orderBooks[data.Symbol][data.Side], data.ID)
 		} else {
 			return fmt.Errorf("unknown action type '%s'", action)
 		}
@@ -111,7 +115,7 @@ func (g *bitmexSimulator) processData(action string, dataSlice []jsonstructs.Bit
 	return nil
 }
 
-func (g *bitmexSimulator) ProcessMessageWebSocket(line []byte) (channel string, err error) {
+func (s *bitmexSimulator) ProcessMessageWebSocket(line []byte) (channel string, err error) {
 	channel = streamcommons.ChannelUnknown
 
 	// check if this message is a response to subscribe
@@ -124,13 +128,13 @@ func (g *bitmexSimulator) ProcessMessageWebSocket(line []byte) (channel string, 
 		// this is subscribe message
 		channel = subscribe.Subscribe
 		// check if this channel should be tracked
-		if g.filterChannel == nil {
-			g.subscribed[channel] = true
+		if s.filterChannel == nil {
+			s.subscribed[channel] = true
 		} else {
 			// filtering is enabled
-			_, ok := g.filterChannel[channel]
+			_, ok := s.filterChannel[channel]
 			if ok {
-				g.subscribed[channel] = true
+				s.subscribed[channel] = true
 			}
 		}
 
@@ -159,7 +163,7 @@ func (g *bitmexSimulator) ProcessMessageWebSocket(line []byte) (channel string, 
 			return
 		}
 
-		err = g.processData(decoded.Action, dataSlice)
+		err = s.processData(decoded.Action, dataSlice)
 
 		return
 	}
@@ -167,8 +171,8 @@ func (g *bitmexSimulator) ProcessMessageWebSocket(line []byte) (channel string, 
 	return
 }
 
-func (g *bitmexSimulator) ProcessMessageChannelKnown(channel string, line []byte) error {
-	wsChannel, serr := g.ProcessMessageWebSocket(line)
+func (s *bitmexSimulator) ProcessMessageChannelKnown(channel string, line []byte) error {
+	wsChannel, serr := s.ProcessMessageWebSocket(line)
 	if serr != nil {
 		return serr
 	}
@@ -178,7 +182,7 @@ func (g *bitmexSimulator) ProcessMessageChannelKnown(channel string, line []byte
 	return nil
 }
 
-func (g *bitmexSimulator) ProcessState(channel string, line []byte) (err error) {
+func (s *bitmexSimulator) ProcessState(channel string, line []byte) (err error) {
 	if channel == streamcommons.StateChannelSubscribed {
 		// add to subscribed
 		subscribed := jsonstructs.BitmexStateSubscribed{}
@@ -188,15 +192,15 @@ func (g *bitmexSimulator) ProcessState(channel string, line []byte) (err error) 
 		}
 		for _, subscrCh := range subscribed {
 			// record subscribed channel only if it is in target channel
-			_, ok := g.filterChannel[subscrCh]
+			_, ok := s.filterChannel[subscrCh]
 			if ok {
-				g.subscribed[subscrCh] = true
+				s.subscribed[subscrCh] = true
 			}
 		}
 		return
 	}
 
-	_, ok := g.filterChannel[channel]
+	_, ok := s.filterChannel[channel]
 	if !ok {
 		return
 	}
@@ -208,7 +212,7 @@ func (g *bitmexSimulator) ProcessState(channel string, line []byte) (err error) 
 		if err != nil {
 			return
 		}
-		return g.processData("partial", decoded)
+		return s.processData("partial", decoded)
 	}
 
 	return
@@ -260,11 +264,11 @@ func sortBitmexID(m map[int64]bitmexOrderBookL2Element) []int64 {
 	return keys
 }
 
-func (g *bitmexSimulator) orderBookL2DataElements() []jsonstructs.BitmexOrderBookL2DataElement {
+func (s *bitmexSimulator) orderBookL2DataElements() []jsonstructs.BitmexOrderBookL2DataElement {
 	// reconstruct raw-like json format bitmex sends
 	data := make([]jsonstructs.BitmexOrderBookL2DataElement, 0, 10)
-	for _, symbol := range sortBitmexOrderbooks(g.orderBooks) {
-		sides := g.orderBooks[symbol]
+	for _, symbol := range sortBitmexOrderbooks(s.orderBooks) {
+		sides := s.orderBooks[symbol]
 		for _, side := range sortBitmexSides(sides) {
 			ids := sides[side]
 			for _, id := range sortBitmexID(ids) {
@@ -282,8 +286,8 @@ func (g *bitmexSimulator) orderBookL2DataElements() []jsonstructs.BitmexOrderBoo
 	return data
 }
 
-func (g *bitmexSimulator) TakeStateSnapshot() (snapshots []Snapshot, err error) {
-	if g.filterChannel != nil {
+func (s *bitmexSimulator) TakeStateSnapshot() (snapshots []Snapshot, err error) {
+	if s.filterChannel != nil {
 		// If channel filtering is enabled, this should not be called
 		err = errors.New("channel filter is enabled")
 		return
@@ -291,8 +295,8 @@ func (g *bitmexSimulator) TakeStateSnapshot() (snapshots []Snapshot, err error) 
 	snapshots = make([]Snapshot, 0, 5)
 
 	// list subscribed channels
-	subList := make([]string, len(g.subscribed))
-	for i, channel := range sortBitmexSubscribe(g.subscribed) {
+	subList := make([]string, len(s.subscribed))
+	for i, channel := range sortBitmexSubscribe(s.subscribed) {
 		subList[i] = channel
 	}
 	var subListMarshaled []byte
@@ -302,7 +306,7 @@ func (g *bitmexSimulator) TakeStateSnapshot() (snapshots []Snapshot, err error) 
 	}
 	snapshots = append(snapshots, Snapshot{Channel: streamcommons.StateChannelSubscribed, Snapshot: subListMarshaled})
 
-	data := g.orderBookL2DataElements()
+	data := s.orderBookL2DataElements()
 	var orderBookL2ElementsMarshaled []byte
 	orderBookL2ElementsMarshaled, err = json.Marshal(data)
 	if err != nil {
@@ -313,11 +317,11 @@ func (g *bitmexSimulator) TakeStateSnapshot() (snapshots []Snapshot, err error) 
 	return
 }
 
-func (g *bitmexSimulator) TakeSnapshot() (snapshots []Snapshot, err error) {
+func (s *bitmexSimulator) TakeSnapshot() (snapshots []Snapshot, err error) {
 	snapshots = make([]Snapshot, 0, 5)
 
 	// subscribe message
-	for _, channel := range sortBitmexSubscribe(g.subscribed) {
+	for _, channel := range sortBitmexSubscribe(s.subscribed) {
 		subscr := jsonstructs.BitmexSubscribe{}
 		subscr.Initialize()
 		subscr.Subscribe = channel
@@ -331,10 +335,10 @@ func (g *bitmexSimulator) TakeSnapshot() (snapshots []Snapshot, err error) {
 		snapshots = append(snapshots, Snapshot{Channel: channel, Snapshot: subscribeMarshaled})
 	}
 
-	_, ok := g.subscribed["orderBookL2"]
+	_, ok := s.subscribed["orderBookL2"]
 	if ok {
 		// reconstruct raw-like json format bitmex sends
-		data := g.orderBookL2DataElements()
+		data := s.orderBookL2DataElements()
 		var dataMarshaled []byte
 		dataMarshaled, err = json.Marshal(data)
 		if err != nil {

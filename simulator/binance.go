@@ -4,8 +4,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/url"
 	"sort"
 	"strconv"
+	"strings"
 
 	"github.com/exchangedataset/streamcommons"
 	"github.com/exchangedataset/streamcommons/jsonstructs"
@@ -14,6 +16,13 @@ import (
 type binanceOrderbook struct {
 	asks map[float64]float64
 	bids map[float64]float64
+	// True if immediate last operation was to construct the initial state
+	isLastSnapshot bool
+	// Last received FinalUpdateID to check for missing messages
+	lastFinalUpdateID int64
+	// Orderbook differences waiting to be applied for the arrival of a REST message
+	// nil if a REST message has already been received
+	differences []*jsonstructs.BinanceDepthStream
 }
 
 type binanceSimulator struct {
@@ -22,14 +31,45 @@ type binanceSimulator struct {
 	idCh map[int]string
 	// Slice of channels a client subscribed to and a server agreed
 	subscribed []string
-	// Last received FinalUpdateID to check for missing messages
-	lastFinalUpdateID int64
-	// Orderbook differences waiting to be applied for the arrival of a REST message
-	// nil if a REST message has already been received
-	differences map[string][]*jsonstructs.BinanceDepthStream
 	// map[symbol]orderbook
 	// Note: symbol is lower-cased one
 	orderBooks map[string]*binanceOrderbook
+}
+
+func (s *binanceSimulator) ProcessStart(line []byte) error {
+	u, serr := url.Parse(string(line))
+	if serr != nil {
+		return serr
+	}
+	query := u.Query()
+	channels := strings.Split(query.Get("streams"), "/")
+	for _, ch := range channels {
+		if s.filterChannel != nil {
+			_, ok := s.filterChannel[ch]
+			if !ok {
+				continue
+			}
+		}
+		// Add this channel to successfully subscribed channel list
+		s.subscribed = append(s.subscribed, ch)
+		symbol, stream, serr := streamcommons.BinanceDecomposeChannel(ch)
+		if serr != nil {
+			return serr
+		}
+		if stream == "depth@100ms" {
+			// Create new orderbook in memory
+			if _, ok := s.orderBooks[symbol]; ok {
+				return errors.New("received subscribe confirmation twice")
+			}
+			orderbook := new(binanceOrderbook)
+			orderbook.asks = make(map[float64]float64, 10000)
+			orderbook.bids = make(map[float64]float64, 10000)
+			// Create a slice to store difference messages before a REST message arrives
+			orderbook.differences = make([]*jsonstructs.BinanceDepthStream, 0, 1000)
+			s.orderBooks[symbol] = orderbook
+		}
+	}
+	return nil
 }
 
 func (s *binanceSimulator) ProcessSend(line []byte) (channel string, err error) {
@@ -53,18 +93,8 @@ func (s *binanceSimulator) ProcessSend(line []byte) (channel string, err error) 
 	return
 }
 
-func (s *binanceSimulator) processMessageDepth(channel string, depth *jsonstructs.BinanceDepthStream) (err error) {
-	symbol, _, serr := streamcommons.BinanceDecomposeChannel(channel)
-	if serr != nil {
-		return serr
-	}
-	orderbook := s.orderBooks[symbol]
-	if s.lastFinalUpdateID+1 != depth.FirstUpdateID {
-		// There are missing messages that haven't been received
-		err = fmt.Errorf("missing messages detected")
-		return
-	}
-	for _, order := range depth.Asks {
+func binanceProcessSide(asks [][]string, m map[float64]float64) (err error) {
+	for _, order := range asks {
 		price, serr := strconv.ParseFloat(order[0], 64)
 		if serr != nil {
 			err = fmt.Errorf("price ParseFloat: %v", serr)
@@ -77,93 +107,81 @@ func (s *binanceSimulator) processMessageDepth(channel string, depth *jsonstruct
 		}
 		if quantity == 0 {
 			// Remove order from the book
-			delete(orderbook.asks, price)
+			delete(m, price)
 		} else {
 			// Update order
-			orderbook.asks[price] = quantity
-		}
-	}
-	for _, order := range depth.Bids {
-		price, serr := strconv.ParseFloat(order[0], 64)
-		if serr != nil {
-			err = fmt.Errorf("price ParseFloat: %v", serr)
-			return
-		}
-		quantity, serr := strconv.ParseFloat(order[1], 64)
-		if serr != nil {
-			err = fmt.Errorf("quantity ParseFloat: %v", serr)
-			return
-		}
-		if quantity == 0 {
-			delete(orderbook.bids, price)
-		} else {
-			orderbook.bids[price] = quantity
+			m[price] = quantity
 		}
 	}
 	return nil
 }
 
-func (s *binanceSimulator) ProcessMessageWebSocket(line []byte) (channel string, err error) {
-	channel = streamcommons.ChannelUnknown
-	subRes := new(jsonstructs.BinanceSubscribeResponse)
-	err = json.Unmarshal(line, subRes)
+func (s *binanceSimulator) processMessageDepth(channel string, depth *jsonstructs.BinanceDepthStream) (err error) {
+	symbol, _, serr := streamcommons.BinanceDecomposeChannel(channel)
+	if serr != nil {
+		return serr
+	}
+	orderbook := s.orderBooks[symbol]
+	if orderbook.isLastSnapshot {
+		// First event should have this traits
+		if depth.FirstUpdateID > orderbook.lastFinalUpdateID+1 ||
+			depth.FinalUpdateID < orderbook.lastFinalUpdateID+1 {
+			err = fmt.Errorf("first difference's updateID out of range")
+			return
+		}
+		orderbook.isLastSnapshot = false
+	} else {
+		if orderbook.lastFinalUpdateID+1 != depth.FirstUpdateID {
+			// There are missing messages that haven't been received
+			err = fmt.Errorf("missing messages detected")
+			return
+		}
+	}
+	err = binanceProcessSide(depth.Asks, orderbook.asks)
 	if err != nil {
 		return
 	}
-	if subRes.ID != 0 {
-		if subRes.Result != nil {
-			err = fmt.Errorf("subscribe result != nil: %v", subRes.Result)
-			return
-		}
-		// Subscribe message response
-		channel = s.idCh[subRes.ID]
-		if s.filterChannel != nil {
-			_, ok := s.filterChannel[channel]
-			if !ok {
-				return
-			}
-		}
-		// Add this channel to successfully subscribed channel list
-		s.subscribed = append(s.subscribed, channel)
-		symbol, stream, serr := streamcommons.BinanceDecomposeChannel(channel)
-		if serr != nil {
-			err = serr
-			return
-		}
-		if stream == "depth@100ms" {
-			// Create new orderbook in memory
-			s.orderBooks[symbol] = new(binanceOrderbook)
-			// Create a slice to store difference messages before a REST message arrives
-			if _, ok := s.differences[symbol]; ok {
-				err = errors.New("received subscribe confirmation twice")
-				return
-			}
-			s.differences[symbol] = make([]*jsonstructs.BinanceDepthStream, 0, 1000)
-		}
+	err = binanceProcessSide(depth.Bids, orderbook.bids)
+	if err != nil {
 		return
 	}
-	// If its not a subscribe message, then must be in the root format
+	orderbook.lastFinalUpdateID = depth.FinalUpdateID
+	return nil
+}
+
+func (s *binanceSimulator) ProcessMessageWebSocket(line []byte) (channel string, err error) {
+	channel = streamcommons.ChannelUnknown
+
 	root := new(jsonstructs.BinanceReponseRoot)
+	err = json.Unmarshal(line, root)
+	if err != nil {
+		return
+	}
 	channel = root.Stream
 	symbol, stream, serr := streamcommons.BinanceDecomposeChannel(channel)
 	if serr != nil {
+		err = serr
 		return
 	}
-	if stream == "depth100ms" {
+	if stream == "depth@100ms" {
 		depth := new(jsonstructs.BinanceDepthStream)
 		serr := json.Unmarshal(root.Data, depth)
 		if serr != nil {
 			err = fmt.Errorf("depth message unmarshal: %v", serr)
 			return
 		}
-		differences := s.differences[symbol]
-		if differences == nil {
+		orderbook := s.orderBooks[symbol]
+		if orderbook.lastFinalUpdateID != 0 {
 			// Already received a REST message
 			err = s.processMessageDepth(channel, depth)
 			return
 		}
+		if len(orderbook.differences) > 100 {
+			err = fmt.Errorf("too much stored difference: %v", symbol)
+			return
+		}
 		// Store this message into an slice
-		s.differences[symbol] = append(differences, depth)
+		orderbook.differences = append(orderbook.differences, depth)
 	}
 	// Ignore other channels
 	return
@@ -181,34 +199,44 @@ func (s *binanceSimulator) ProcessMessageChannelKnown(channel string, line []byt
 		if serr != nil {
 			return fmt.Errorf("depth unmarshal: %v", serr)
 		}
-		// Apply orderbook differences previously received via WebSocket
-		differences := s.differences[symbol]
-		if differences == nil {
-			err = errors.New("received REST twice or none")
+		if depthRest.LastUpdateID == 0 {
+			return errors.New("depth unmarshal: LastUpdateID == 0, probably not a depth message")
+		}
+		// Set the initial state
+		orderbook := s.orderBooks[symbol]
+		if orderbook.lastFinalUpdateID != 0 {
+			err = errors.New("received REST twice")
 			return
 		}
-		// Drop unneccesary messages
+		orderbook.isLastSnapshot = true
+		orderbook.lastFinalUpdateID = depthRest.LastUpdateID
+		err = binanceProcessSide(depthRest.Asks, orderbook.asks)
+		if err != nil {
+			return
+		}
+		err = binanceProcessSide(depthRest.Bids, orderbook.bids)
+		if err != nil {
+			return
+		}
+		// Apply orderbook differences previously received via WebSocket
+		differences := orderbook.differences
+		// Drop unneccesary stored messages
 		i := 0
 		for ; i < len(differences) && differences[i].FinalUpdateID <= depthRest.LastUpdateID; i++ {
 		}
 		if i == len(differences) {
-			// No messages are stored
-			err = fmt.Errorf("no messages stored")
+			// No messages that should be applied immediately are stored
 			return
 		}
-		// First event should have this traits
-		if differences[i].FirstUpdateID > depthRest.LastUpdateID+1 ||
-			differences[i].FinalUpdateID <= depthRest.LastUpdateID+1 {
-			return
-		}
+		// Apply all differences stored
 		for ; i < len(differences); i++ {
-			// Apply all
 			serr := s.processMessageDepth(symbol+"@depth@100ms", differences[i])
 			if serr != nil {
 				return fmt.Errorf("apply depth: %v", serr)
 			}
 		}
-		s.differences[symbol] = nil
+		// To free memory space
+		orderbook.differences = nil
 		return
 	}
 	wsChannel, serr := s.ProcessMessageWebSocket(line)
@@ -294,6 +322,10 @@ func (s *binanceSimulator) TakeStateSnapshot() (snapshot []Snapshot, err error) 
 	})
 	// Take snapshots of orderbooks
 	for symbol, orderbook := range s.orderBooks {
+		depthRest := new(jsonstructs.BinanceDepthREST)
+		depthRest.LastUpdateID = orderbook.lastFinalUpdateID
+		depthRest.Asks = make([][]string, len(depthRest.Asks))
+
 		obMarshaled, serr := json.Marshal(orderbook)
 		if serr != nil {
 			err = fmt.Errorf("orderbook marshal: %v", serr)
@@ -390,7 +422,7 @@ func (s *binanceSimulator) TakeSnapshot() (snapshot []Snapshot, err error) {
 			order[1] = strconv.FormatFloat(quantity, 'f', streamcommons.BinanceQuantityPrecision, 64)
 			depth.Bids[i] = order
 		}
-		depth.LastUpdateID = s.lastFinalUpdateID
+		depth.LastUpdateID = memOrderbook.lastFinalUpdateID
 		depthMarshaled, serr := json.Marshal(depth)
 		if serr != nil {
 			err = fmt.Errorf("orderbook marshal: %v", serr)
@@ -414,6 +446,5 @@ func newBinanceSimulator(channelFilter []string) *binanceSimulator {
 	}
 	s.idCh = make(map[int]string)
 	s.orderBooks = make(map[string]*binanceOrderbook)
-	s.differences = make(map[string][]*jsonstructs.BinanceDepthStream)
 	return s
 }

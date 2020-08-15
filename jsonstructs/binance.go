@@ -2,6 +2,12 @@ package jsonstructs
 
 import "encoding/json"
 
+// BinanceError is the error message sent by Binance
+type BinanceError struct {
+	Code int    `json:"code"`
+	Msg  string `json:"msg"`
+}
+
 // BinanceRateLimiter is the rate limit information used in REST API
 type BinanceRateLimiter struct {
 	RateLimitType string `json:"rateLimitType"`

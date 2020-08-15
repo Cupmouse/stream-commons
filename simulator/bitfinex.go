@@ -26,6 +26,10 @@ type bitfinexSimulator struct {
 	orderBooks map[string]map[float64]bitfinexBookElement
 }
 
+func (s *bitfinexSimulator) ProcessStart(line []byte) error {
+	return nil
+}
+
 // ProcessSend processes send message sent from client and returns associated channel
 func (s *bitfinexSimulator) ProcessSend(line []byte) (channel string, err error) {
 	channel = streamcommons.ChannelUnknown
