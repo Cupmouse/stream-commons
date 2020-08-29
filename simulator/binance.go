@@ -13,16 +13,24 @@ import (
 	"github.com/exchangedataset/streamcommons/jsonstructs"
 )
 
+type binanceOrderbookState struct {
+	Asks              [][2]float64                      `json:"asks"`
+	Bids              [][2]float64                      `json:"bids"`
+	IsLastSnapshot    bool                              `json:"isLastSnapshot"`
+	LastFinalUpdateID int64                             `json:"lastFinalUpdateID"`
+	Differences       []*jsonstructs.BinanceDepthStream `json:"differences"`
+}
+
 type binanceOrderbook struct {
-	asks map[float64]float64
-	bids map[float64]float64
+	Asks map[float64]float64
+	Bids map[float64]float64
 	// True if immediate last operation was to construct the initial state
-	isLastSnapshot bool
+	IsLastSnapshot bool
 	// Last received FinalUpdateID to check for missing messages
-	lastFinalUpdateID int64
+	LastFinalUpdateID int64
 	// Orderbook differences waiting to be applied for the arrival of a REST message
 	// nil if a REST message has already been received
-	differences []*jsonstructs.BinanceDepthStream
+	Differences []*jsonstructs.BinanceDepthStream
 }
 
 type binanceSimulator struct {
@@ -62,10 +70,10 @@ func (s *binanceSimulator) ProcessStart(line []byte) error {
 				return errors.New("received subscribe confirmation twice")
 			}
 			orderbook := new(binanceOrderbook)
-			orderbook.asks = make(map[float64]float64, 10000)
-			orderbook.bids = make(map[float64]float64, 10000)
+			orderbook.Asks = make(map[float64]float64, 10000)
+			orderbook.Bids = make(map[float64]float64, 10000)
 			// Create a slice to store difference messages before a REST message arrives
-			orderbook.differences = make([]*jsonstructs.BinanceDepthStream, 0, 1000)
+			orderbook.Differences = make([]*jsonstructs.BinanceDepthStream, 0, 1000)
 			s.orderBooks[symbol] = orderbook
 		}
 	}
@@ -122,30 +130,30 @@ func (s *binanceSimulator) processMessageDepth(channel string, depth *jsonstruct
 		return serr
 	}
 	orderbook := s.orderBooks[symbol]
-	if orderbook.isLastSnapshot {
+	if orderbook.IsLastSnapshot {
 		// First event should have this traits
-		if depth.FirstUpdateID > orderbook.lastFinalUpdateID+1 ||
-			depth.FinalUpdateID < orderbook.lastFinalUpdateID+1 {
+		if depth.FirstUpdateID > orderbook.LastFinalUpdateID+1 ||
+			depth.FinalUpdateID < orderbook.LastFinalUpdateID+1 {
 			err = fmt.Errorf("first difference's updateID out of range")
 			return
 		}
-		orderbook.isLastSnapshot = false
+		orderbook.IsLastSnapshot = false
 	} else {
-		if orderbook.lastFinalUpdateID+1 != depth.FirstUpdateID {
+		if orderbook.LastFinalUpdateID+1 != depth.FirstUpdateID {
 			// There are missing messages that haven't been received
 			err = fmt.Errorf("missing messages detected")
 			return
 		}
 	}
-	err = binanceProcessSide(depth.Asks, orderbook.asks)
+	err = binanceProcessSide(depth.Asks, orderbook.Asks)
 	if err != nil {
 		return
 	}
-	err = binanceProcessSide(depth.Bids, orderbook.bids)
+	err = binanceProcessSide(depth.Bids, orderbook.Bids)
 	if err != nil {
 		return
 	}
-	orderbook.lastFinalUpdateID = depth.FinalUpdateID
+	orderbook.LastFinalUpdateID = depth.FinalUpdateID
 	return nil
 }
 
@@ -171,17 +179,17 @@ func (s *binanceSimulator) ProcessMessageWebSocket(line []byte) (channel string,
 			return
 		}
 		orderbook := s.orderBooks[symbol]
-		if orderbook.lastFinalUpdateID != 0 {
+		if orderbook.LastFinalUpdateID != 0 {
 			// Already received a REST message
 			err = s.processMessageDepth(channel, depth)
 			return
 		}
-		if len(orderbook.differences) > 100 {
+		if len(orderbook.Differences) > 100 {
 			err = fmt.Errorf("too much stored difference: %v", symbol)
 			return
 		}
 		// Store this message into an slice
-		orderbook.differences = append(orderbook.differences, depth)
+		orderbook.Differences = append(orderbook.Differences, depth)
 	}
 	// Ignore other channels
 	return
@@ -204,22 +212,22 @@ func (s *binanceSimulator) ProcessMessageChannelKnown(channel string, line []byt
 		}
 		// Set the initial state
 		orderbook := s.orderBooks[symbol]
-		if orderbook.lastFinalUpdateID != 0 {
+		if orderbook.LastFinalUpdateID != 0 {
 			err = errors.New("received REST twice")
 			return
 		}
-		orderbook.isLastSnapshot = true
-		orderbook.lastFinalUpdateID = depthRest.LastUpdateID
-		err = binanceProcessSide(depthRest.Asks, orderbook.asks)
+		orderbook.IsLastSnapshot = true
+		orderbook.LastFinalUpdateID = depthRest.LastUpdateID
+		err = binanceProcessSide(depthRest.Asks, orderbook.Asks)
 		if err != nil {
 			return
 		}
-		err = binanceProcessSide(depthRest.Bids, orderbook.bids)
+		err = binanceProcessSide(depthRest.Bids, orderbook.Bids)
 		if err != nil {
 			return
 		}
 		// Apply orderbook differences previously received via WebSocket
-		differences := orderbook.differences
+		differences := orderbook.Differences
 		// Drop unneccesary stored messages
 		i := 0
 		for ; i < len(differences) && differences[i].FinalUpdateID <= depthRest.LastUpdateID; i++ {
@@ -236,7 +244,7 @@ func (s *binanceSimulator) ProcessMessageChannelKnown(channel string, line []byt
 			}
 		}
 		// To free memory space
-		orderbook.differences = nil
+		orderbook.Differences = nil
 		return
 	}
 	wsChannel, serr := s.ProcessMessageWebSocket(line)
@@ -278,24 +286,34 @@ func (s *binanceSimulator) ProcessState(channel string, line []byte) (err error)
 	}
 	switch stream {
 	case "depth@100ms":
-		depthState := make(map[string]*binanceOrderbook)
-		serr := json.Unmarshal(line, &depthState)
-		if serr != nil {
-			err = fmt.Errorf("depth state unmarshal: %v", serr)
-			return
-		}
-		if s.filterChannel == nil {
-			// Filter disabled
-			s.orderBooks = depthState
-		} else {
+		if s.filterChannel != nil {
 			// Apply filter
 			for _, subChannel := range s.subscribed {
 				_, ok := s.filterChannel[subChannel]
-				if ok {
-					s.orderBooks[symbol] = depthState[symbol]
+				if !ok {
+					return
 				}
 			}
 		}
+		state := new(binanceOrderbookState)
+		serr := json.Unmarshal(line, state)
+		if serr != nil {
+			err = fmt.Errorf("orderbook unmarshal: %v", serr)
+			return
+		}
+		ob := new(binanceOrderbook)
+		ob.Asks = make(map[float64]float64)
+		for _, arr := range state.Asks {
+			ob.Asks[arr[0]] = arr[1]
+		}
+		ob.Bids = make(map[float64]float64)
+		for _, arr := range state.Bids {
+			ob.Bids[arr[0]] = arr[1]
+		}
+		ob.Differences = state.Differences
+		ob.IsLastSnapshot = state.IsLastSnapshot
+		ob.LastFinalUpdateID = state.LastFinalUpdateID
+		s.orderBooks[symbol] = ob
 		return
 	default:
 		err = fmt.Errorf("unknown stream name: %v", stream)
@@ -303,37 +321,49 @@ func (s *binanceSimulator) ProcessState(channel string, line []byte) (err error)
 	}
 }
 
-func (s *binanceSimulator) TakeStateSnapshot() (snapshot []Snapshot, err error) {
+func (s *binanceSimulator) TakeStateSnapshot() (snapshots []Snapshot, err error) {
 	if s.filterChannel != nil {
 		// If channel filtering is enabled, this should not be called
 		err = errors.New("channel filter is enabled")
 		return
 	}
-	snapshot = make([]Snapshot, 0, 100)
+	snapshots = make([]Snapshot, 0, 100)
 	// Take a snapshot of subscribed channel list
 	subMarshaled, serr := json.Marshal(s.subscribed)
 	if serr != nil {
 		err = fmt.Errorf("subscribed marshal: %v", serr)
 		return
 	}
-	snapshot = append(snapshot, Snapshot{
+	snapshots = append(snapshots, Snapshot{
 		Channel:  streamcommons.StateChannelSubscribed,
 		Snapshot: subMarshaled,
 	})
 	// Take snapshots of orderbooks
 	for symbol, orderbook := range s.orderBooks {
-		depthRest := new(jsonstructs.BinanceDepthREST)
-		depthRest.LastUpdateID = orderbook.lastFinalUpdateID
-		depthRest.Asks = make([][]string, len(depthRest.Asks))
-
-		obMarshaled, serr := json.Marshal(orderbook)
+		state := new(binanceOrderbookState)
+		state.Asks = make([][2]float64, len(orderbook.Asks))
+		i := 0
+		for price, quantity := range orderbook.Asks {
+			state.Asks[i] = [2]float64{price, quantity}
+			i++
+		}
+		state.Bids = make([][2]float64, len(orderbook.Bids))
+		i = 0
+		for price, quantity := range orderbook.Bids {
+			state.Bids[i] = [2]float64{price, quantity}
+			i++
+		}
+		state.Differences = orderbook.Differences
+		state.IsLastSnapshot = orderbook.IsLastSnapshot
+		state.LastFinalUpdateID = orderbook.LastFinalUpdateID
+		sm, serr := json.Marshal(state)
 		if serr != nil {
 			err = fmt.Errorf("orderbook marshal: %v", serr)
 			return
 		}
-		snapshot = append(snapshot, Snapshot{
+		snapshots = append(snapshots, Snapshot{
 			Channel:  symbol + "@" + streamcommons.BinanceStreamRESTDepth,
-			Snapshot: obMarshaled,
+			Snapshot: sm,
 		})
 	}
 	return
@@ -352,9 +382,9 @@ func (s *binanceSimulator) sortOrderbooksBySymbol() []string {
 }
 
 func (s *binanceSimulator) sortAsksByPrice(symbol string) []float64 {
-	sorted := make([]float64, len(s.orderBooks[symbol].asks))
+	sorted := make([]float64, len(s.orderBooks[symbol].Asks))
 	i := 0
-	for price := range s.orderBooks[symbol].asks {
+	for price := range s.orderBooks[symbol].Asks {
 		sorted[i] = price
 		i++
 	}
@@ -363,9 +393,9 @@ func (s *binanceSimulator) sortAsksByPrice(symbol string) []float64 {
 }
 
 func (s *binanceSimulator) sortBidsByPrice(symbol string) []float64 {
-	sorted := make([]float64, len(s.orderBooks[symbol].asks))
+	sorted := make([]float64, len(s.orderBooks[symbol].Asks))
 	i := 0
-	for price := range s.orderBooks[symbol].asks {
+	for price := range s.orderBooks[symbol].Asks {
 		sorted[i] = price
 		i++
 	}
@@ -406,23 +436,23 @@ func (s *binanceSimulator) TakeSnapshot() (snapshot []Snapshot, err error) {
 		}
 		memOrderbook := s.orderBooks[symbol]
 		depth := new(jsonstructs.BinanceDepthREST)
-		depth.Asks = make([][]string, len(memOrderbook.asks))
+		depth.Asks = make([][]string, len(memOrderbook.Asks))
 		for i, price := range s.sortAsksByPrice(symbol) {
-			quantity := memOrderbook.asks[price]
+			quantity := memOrderbook.Asks[price]
 			order := make([]string, 2)
 			order[0] = strconv.FormatFloat(price, 'f', streamcommons.BinancePricePrecision, 64)
 			order[1] = strconv.FormatFloat(quantity, 'f', streamcommons.BinanceQuantityPrecision, 64)
 			depth.Asks[i] = order
 		}
-		depth.Bids = make([][]string, len(memOrderbook.bids))
+		depth.Bids = make([][]string, len(memOrderbook.Bids))
 		for i, price := range s.sortBidsByPrice(symbol) {
-			quantity := memOrderbook.bids[price]
+			quantity := memOrderbook.Bids[price]
 			order := make([]string, 2)
 			order[0] = strconv.FormatFloat(price, 'f', streamcommons.BinancePricePrecision, 64)
 			order[1] = strconv.FormatFloat(quantity, 'f', streamcommons.BinanceQuantityPrecision, 64)
 			depth.Bids[i] = order
 		}
-		depth.LastUpdateID = memOrderbook.lastFinalUpdateID
+		depth.LastUpdateID = memOrderbook.LastFinalUpdateID
 		depthMarshaled, serr := json.Marshal(depth)
 		if serr != nil {
 			err = fmt.Errorf("orderbook marshal: %v", serr)

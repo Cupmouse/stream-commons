@@ -1,19 +1,51 @@
-package json
+package jsonf
 
 import (
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"time"
 
-	"github.com/exchangedataset/streamcommons/formatter/json/jsondef"
+	"github.com/exchangedataset/streamcommons/formatter/jsonf/jsondef"
 	"github.com/exchangedataset/streamcommons/jsonstructs"
 )
 
-// bitmexFormatter formats message from bitmex
-type bitmexFormatter struct {
+var bitmexDurationBaseTime time.Time
+
+func bitmexParseTimestamp(timestamp *string) (*string, error) {
+	if timestamp != nil {
+		timestampTime, serr := time.Parse(time.RFC3339Nano, *timestamp)
+		if serr != nil {
+			return nil, serr
+		}
+		result := strconv.FormatInt(timestampTime.UnixNano(), 10)
+		return &result, nil
+	}
+	return nil, nil
 }
 
-func (f *bitmexFormatter) formatOrderBookL2(dataRaw json.RawMessage) (ret [][]byte, err error) {
+func bitmexParseDuration(duration *string) (*string, error) {
+	if duration != nil {
+		durationTime, serr := time.Parse(time.RFC3339Nano, *duration)
+		if serr != nil {
+			return nil, serr
+		}
+		result := strconv.FormatInt(durationTime.Sub(bitmexDurationBaseTime).Nanoseconds(), 10)
+		return &result, nil
+	}
+	return nil, nil
+}
+
+// BitmexFormatter formats message from bitmex
+type BitmexFormatter struct {
+}
+
+// FormatStart returns empty slice.
+func (f *BitmexFormatter) FormatStart(urlStr []byte) ([][]byte, error) {
+	return make([][]byte, 0), nil
+}
+
+func (f *BitmexFormatter) formatOrderBookL2(dataRaw json.RawMessage) (ret [][]byte, err error) {
 	orders := make([]jsonstructs.BitmexOrderBookL2DataElement, 0, 10)
 	serr := json.Unmarshal(dataRaw, &orders)
 	if serr != nil {
@@ -43,7 +75,7 @@ func (f *bitmexFormatter) formatOrderBookL2(dataRaw json.RawMessage) (ret [][]by
 	return
 }
 
-func (f *bitmexFormatter) formatTrade(dataRaw json.RawMessage) (ret [][]byte, err error) {
+func (f *BitmexFormatter) formatTrade(dataRaw json.RawMessage) (ret [][]byte, err error) {
 	orders := make([]jsonstructs.BitmexTradeDataElement, 0, 10)
 	serr := json.Unmarshal(dataRaw, &orders)
 	if serr != nil {
@@ -56,7 +88,7 @@ func (f *bitmexFormatter) formatTrade(dataRaw json.RawMessage) (ret [][]byte, er
 		if elem.Side == "Sell" {
 			size = -size
 		}
-		timestamp, serr := parseTimestamp(&elem.Timestamp)
+		timestamp, serr := bitmexParseTimestamp(&elem.Timestamp)
 		marshaled, serr := json.Marshal(jsondef.BitmexTrade{
 			Pair:            elem.Symbol,
 			Price:           elem.Price,
@@ -77,7 +109,7 @@ func (f *bitmexFormatter) formatTrade(dataRaw json.RawMessage) (ret [][]byte, er
 	return
 }
 
-func (f *bitmexFormatter) formatInstrument(dataRaw json.RawMessage) (ret [][]byte, err error) {
+func (f *BitmexFormatter) formatInstrument(dataRaw json.RawMessage) (ret [][]byte, err error) {
 	instruments := make([]jsonstructs.BitmexInstrumentDataElem, 0, 10)
 	serr := json.Unmarshal(dataRaw, &instruments)
 	if serr != nil {
@@ -87,82 +119,82 @@ func (f *bitmexFormatter) formatInstrument(dataRaw json.RawMessage) (ret [][]byt
 
 	ret = make([][]byte, len(instruments))
 	for i, elem := range instruments {
-		relistInterval, serr := parseDuration(elem.RelistInterval)
+		relistInterval, serr := bitmexParseDuration(elem.RelistInterval)
 		if serr != nil {
 			err = fmt.Errorf("parse duration for relistInterval failed: %s", serr.Error())
 			return
 		}
-		calcInterval, serr := parseDuration(elem.CalcInterval)
+		calcInterval, serr := bitmexParseDuration(elem.CalcInterval)
 		if serr != nil {
 			err = fmt.Errorf("parse duration for calcInterval failed: %s", serr.Error())
 			return
 		}
-		publishInterval, serr := parseDuration(elem.PublishInterval)
+		publishInterval, serr := bitmexParseDuration(elem.PublishInterval)
 		if serr != nil {
 			err = fmt.Errorf("parse duration for publishInterval failed: %s", serr.Error())
 			return
 		}
-		publishTime, serr := parseDuration(elem.PublishTime)
+		publishTime, serr := bitmexParseDuration(elem.PublishTime)
 		if serr != nil {
 			err = fmt.Errorf("parse duration for publishTime failed: %s", serr.Error())
 			return
 		}
-		fundingInterval, serr := parseDuration(elem.FundingInterval)
+		fundingInterval, serr := bitmexParseDuration(elem.FundingInterval)
 		if serr != nil {
 			err = fmt.Errorf("parse duration for fundingInterval failed: %s", serr.Error())
 			return
 		}
-		rebalanceInterval, serr := parseDuration(elem.RebalanceInterval)
+		rebalanceInterval, serr := bitmexParseDuration(elem.RebalanceInterval)
 		if serr != nil {
 			err = fmt.Errorf("parse duration for rebalanceInterval failed: %s", serr.Error())
 			return
 		}
-		sessionInterval, serr := parseDuration(elem.SessionInterval)
+		sessionInterval, serr := bitmexParseDuration(elem.SessionInterval)
 		if serr != nil {
 			err = fmt.Errorf("parse duration for sessionInterval failed: %s", serr.Error())
 			return
 		}
-		listing, serr := parseTimestamp(elem.Listing)
+		listing, serr := bitmexParseTimestamp(elem.Listing)
 		if serr != nil {
 			err = fmt.Errorf("parse timestamp for listing failed: %s", serr.Error())
 			return
 		}
-		front, serr := parseTimestamp(elem.Front)
+		front, serr := bitmexParseTimestamp(elem.Front)
 		if serr != nil {
 			err = fmt.Errorf("parse timestamp for front failed: %s", serr.Error())
 			return
 		}
-		expiry, serr := parseTimestamp(elem.Expiry)
+		expiry, serr := bitmexParseTimestamp(elem.Expiry)
 		if serr != nil {
 			err = fmt.Errorf("parse timestamp for expiry failed: %s", serr.Error())
 			return
 		}
-		settle, serr := parseTimestamp(elem.Settle)
+		settle, serr := bitmexParseTimestamp(elem.Settle)
 		if serr != nil {
 			err = fmt.Errorf("parse timestamp for settle failed: %s", serr.Error())
 			return
 		}
-		closingTimestamp, serr := parseTimestamp(elem.ClosingTimestamp)
+		closingTimestamp, serr := bitmexParseTimestamp(elem.ClosingTimestamp)
 		if serr != nil {
 			err = fmt.Errorf("parse timestamp for closingTimestamp failed: %s", serr.Error())
 			return
 		}
-		fundingTimestamp, serr := parseTimestamp(elem.FundingTimestamp)
+		fundingTimestamp, serr := bitmexParseTimestamp(elem.FundingTimestamp)
 		if serr != nil {
 			err = fmt.Errorf("parse timestamp for fundingTimestamp failed: %s", serr.Error())
 			return
 		}
-		openingTimestamp, serr := parseTimestamp(elem.OpeningTimestamp)
+		openingTimestamp, serr := bitmexParseTimestamp(elem.OpeningTimestamp)
 		if serr != nil {
 			err = fmt.Errorf("parse timestamp for openingTimestamp failed: %s", serr.Error())
 			return
 		}
-		rebalanceTimestamp, serr := parseTimestamp(elem.RebalanceTimestamp)
+		rebalanceTimestamp, serr := bitmexParseTimestamp(elem.RebalanceTimestamp)
 		if serr != nil {
 			err = fmt.Errorf("parse timestamp for rebalanceTimestamp failed: %s", serr.Error())
 			return
 		}
-		timestamp, serr := parseTimestamp(&elem.Timestamp)
+		timestamp, serr := bitmexParseTimestamp(&elem.Timestamp)
 		if serr != nil {
 			err = fmt.Errorf("parse timestamp for timestamp failed: %s", serr.Error())
 			return
@@ -283,7 +315,7 @@ func (f *bitmexFormatter) formatInstrument(dataRaw json.RawMessage) (ret [][]byt
 	return
 }
 
-func (f *bitmexFormatter) formatLiquidation(dataRaw json.RawMessage) (ret [][]byte, err error) {
+func (f *BitmexFormatter) formatLiquidation(dataRaw json.RawMessage) (ret [][]byte, err error) {
 	liquidations := make([]jsonstructs.BitmexLiquidationDataElement, 0, 10)
 	serr := json.Unmarshal(dataRaw, &liquidations)
 	if serr != nil {
@@ -309,7 +341,7 @@ func (f *bitmexFormatter) formatLiquidation(dataRaw json.RawMessage) (ret [][]by
 	return
 }
 
-func (f *bitmexFormatter) formatSettlement(dataRaw json.RawMessage) (ret [][]byte, err error) {
+func (f *BitmexFormatter) formatSettlement(dataRaw json.RawMessage) (ret [][]byte, err error) {
 	settlements := make([]jsonstructs.BitmexSettlementDataElement, 0, 10)
 	serr := json.Unmarshal(dataRaw, &settlements)
 	if serr != nil {
@@ -318,7 +350,7 @@ func (f *bitmexFormatter) formatSettlement(dataRaw json.RawMessage) (ret [][]byt
 	}
 	ret = make([][]byte, len(settlements))
 	for i, elem := range settlements {
-		timestamp, serr := parseTimestamp(&elem.Timestamp)
+		timestamp, serr := bitmexParseTimestamp(&elem.Timestamp)
 		marshaled, serr := json.Marshal(jsondef.BitmexSettlement{
 			Timestamp:             *timestamp,
 			Symbol:                elem.Symbol,
@@ -339,7 +371,7 @@ func (f *bitmexFormatter) formatSettlement(dataRaw json.RawMessage) (ret [][]byt
 	return
 }
 
-func (f *bitmexFormatter) formatInsurance(dataRaw json.RawMessage) (ret [][]byte, err error) {
+func (f *BitmexFormatter) formatInsurance(dataRaw json.RawMessage) (ret [][]byte, err error) {
 	insurances := make([]jsonstructs.BitmexInsuranceDataElement, 0, 10)
 	serr := json.Unmarshal(dataRaw, &insurances)
 	if serr != nil {
@@ -348,7 +380,7 @@ func (f *bitmexFormatter) formatInsurance(dataRaw json.RawMessage) (ret [][]byte
 	}
 	ret = make([][]byte, len(insurances))
 	for i, elem := range insurances {
-		timestamp, serr := parseTimestamp(&elem.Timestamp)
+		timestamp, serr := bitmexParseTimestamp(&elem.Timestamp)
 		marshaled, serr := json.Marshal(jsondef.BitmexInsurance{
 			Currency:      elem.Currency,
 			Timestamp:     *timestamp,
@@ -363,7 +395,7 @@ func (f *bitmexFormatter) formatInsurance(dataRaw json.RawMessage) (ret [][]byte
 	return
 }
 
-func (f *bitmexFormatter) formatFunding(dataRaw json.RawMessage) (ret [][]byte, err error) {
+func (f *BitmexFormatter) formatFunding(dataRaw json.RawMessage) (ret [][]byte, err error) {
 	fundings := make([]jsonstructs.BitmexFundingDataElement, 0, 10)
 	serr := json.Unmarshal(dataRaw, &fundings)
 	if serr != nil {
@@ -372,11 +404,11 @@ func (f *bitmexFormatter) formatFunding(dataRaw json.RawMessage) (ret [][]byte, 
 	}
 	ret = make([][]byte, len(fundings))
 	for i, elem := range fundings {
-		timestamp, serr := parseTimestamp(&elem.Timestamp)
+		timestamp, serr := bitmexParseTimestamp(&elem.Timestamp)
 		if serr != nil {
 			err = fmt.Errorf("parsing timestamp failed for timestamp from funding: %v", serr)
 		}
-		fundingInterval, serr := parseDuration(&elem.FundingInterval)
+		fundingInterval, serr := bitmexParseDuration(&elem.FundingInterval)
 		if serr != nil {
 			err = fmt.Errorf("parsing timestamp failed for fundingInterval from funding: %v", serr)
 		}
@@ -397,7 +429,7 @@ func (f *bitmexFormatter) formatFunding(dataRaw json.RawMessage) (ret [][]byte, 
 }
 
 // Format formats incoming message given and returns formatted strings
-func (f *bitmexFormatter) Format(channel string, line []byte) (ret [][]byte, err error) {
+func (f *BitmexFormatter) Format(channel string, line []byte) (ret [][]byte, err error) {
 	subscribed := jsonstructs.BitmexSubscribe{}
 	serr := json.Unmarshal(line, &subscribed)
 	if serr != nil {
@@ -455,7 +487,7 @@ func (f *bitmexFormatter) Format(channel string, line []byte) (ret [][]byte, err
 }
 
 // IsSupported returns true if given channel is supported to be formatted using this formatter
-func (f *bitmexFormatter) IsSupported(channel string) bool {
+func (f *BitmexFormatter) IsSupported(channel string) bool {
 	return channel == "orderBookL2" || channel == "trade" || channel == "instrument" ||
 		channel == "liquidation" || channel == "settlement" || channel == "insurance" ||
 		channel == "funding"
@@ -463,9 +495,8 @@ func (f *bitmexFormatter) IsSupported(channel string) bool {
 
 func init() {
 	var serr error
-	durationBaseTime, serr = time.Parse(time.RFC3339Nano, "2000-01-01T00:00:00.000Z")
+	bitmexDurationBaseTime, serr = time.Parse(time.RFC3339Nano, "2000-01-01T00:00:00.000Z")
 	if serr != nil {
 		panic(fmt.Sprintf("initialization for durationBaseTime failed: %s", serr.Error()))
 	}
-
 }

@@ -47,6 +47,10 @@ func GetSimulator(exchange string, channels []string) (Simulator, error) {
 		return newBitfinexSimulator(channels), nil
 	case "binance":
 		return newBinanceSimulator(channels), nil
+	case "bitbank":
+		return newBitbankSimulator(channels), nil
+	case "liquid":
+		return newLiquidSimulator(channels), nil
 	default:
 		return nil, fmt.Errorf("snapshot for exchange %s is not supported", exchange)
 	}

@@ -1,21 +1,37 @@
-package json
+package jsonf
 
 import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/exchangedataset/streamcommons"
-	"github.com/exchangedataset/streamcommons/formatter/json/jsondef"
+	"github.com/exchangedataset/streamcommons/formatter/jsonf/jsondef"
 	"github.com/exchangedataset/streamcommons/jsonstructs"
 )
 
-type binanceFormatter struct{}
+// BinanceFormatter is json formatter for Binance.
+type BinanceFormatter struct{}
 
-func (f *binanceFormatter) Format(channel string, line []byte) (formatted [][]byte, err error) {
+// FormatStart formats start line (URL) and returns the array of known subscribed channel in case the server won't
+// tell the client what channels are successfully subscribed.
+func (f *BinanceFormatter) FormatStart(urlStr []byte) (subscribed []string, err error) {
+	u, serr := url.Parse(string(urlStr))
+	if serr != nil {
+		return nil, fmt.Errorf("FormatStart: %v", serr)
+	}
+	q := u.Query()
+	streams := q.Get("streams")
+	channels := strings.Split("/", streams)
+	return channels, nil
+}
+
+// FormatMessage formats messages from server.
+func (f *BinanceFormatter) FormatMessage(channel string, line []byte) (formatted [][]byte, err error) {
 	subscribe := new(jsonstructs.BinanceSubscribe)
 	serr := json.Unmarshal(line, subscribe)
 	if serr != nil {
@@ -212,7 +228,8 @@ func (f *binanceFormatter) Format(channel string, line []byte) (formatted [][]by
 	}
 }
 
-func (f *binanceFormatter) IsSupported(channel string) bool {
+// IsSupported returns true if the given channel is supported by this formatter.
+func (f *BinanceFormatter) IsSupported(channel string) bool {
 	_, stream, serr := streamcommons.BinanceDecomposeChannel(channel)
 	if serr != nil {
 		return false

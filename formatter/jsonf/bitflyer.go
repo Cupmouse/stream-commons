@@ -1,19 +1,34 @@
-package json
+package jsonf
 
 import (
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"strings"
+	"time"
 
-	"github.com/exchangedataset/streamcommons/formatter/json/jsondef"
+	"github.com/exchangedataset/streamcommons/formatter/jsonf/jsondef"
 	"github.com/exchangedataset/streamcommons/jsonstructs"
 )
 
-// bitflyerFormatter formats raw input from bitflyer api into csvlike format
-type bitflyerFormatter struct {
+func bitflyerParseTimestamp(timestamp string) (string, error) {
+	timestampTime, serr := time.Parse(time.RFC3339Nano, timestamp)
+	if serr != nil {
+		return "", serr
+	}
+	return strconv.FormatInt(timestampTime.UnixNano(), 10), nil
 }
 
-func (f *bitflyerFormatter) formatBoard(channel string, messageRaw json.RawMessage) ([][]byte, error) {
+// BitflyerFormatter formats raw input from bitflyer api into csvlike format.
+type BitflyerFormatter struct {
+}
+
+// FormatStart returns empty slice.
+func (f *BitflyerFormatter) FormatStart(urlStr []byte) ([][]byte, error) {
+	return make([][]byte, 0), nil
+}
+
+func (f *BitflyerFormatter) formatBoard(channel string, messageRaw json.RawMessage) ([][]byte, error) {
 	var pair string
 	if strings.HasPrefix(channel, "lightning_board_snapshot_") {
 		pair = channel[len("lightning_board_snapshot_"):]
@@ -57,7 +72,7 @@ func (f *bitflyerFormatter) formatBoard(channel string, messageRaw json.RawMessa
 	return ret, nil
 }
 
-func (f *bitflyerFormatter) formatExecutions(channel string, messageRaw json.RawMessage) ([][]byte, error) {
+func (f *BitflyerFormatter) formatExecutions(channel string, messageRaw json.RawMessage) ([][]byte, error) {
 	// pair, price, size
 	pair := channel[len("lightning_executions_"):]
 
@@ -93,20 +108,20 @@ func (f *bitflyerFormatter) formatExecutions(channel string, messageRaw json.Raw
 	return ret, nil
 }
 
-func (f *bitflyerFormatter) formatTicker(channel string, messageRaw json.RawMessage) ([][]byte, error) {
+func (f *BitflyerFormatter) formatTicker(channel string, messageRaw json.RawMessage) ([][]byte, error) {
 	ticker := new(jsonstructs.BitflyerTickerParamsMessage)
 	err := json.Unmarshal(messageRaw, ticker)
 	if err != nil {
 		return nil, fmt.Errorf("unmarshal failed in formatTicker: %s", err.Error())
 	}
-	timestamp, serr := parseTimestamp(&ticker.Timestamp)
+	timestamp, serr := bitflyerParseTimestamp(ticker.Timestamp)
 	if serr != nil {
 		return nil, fmt.Errorf("parse timestamp failed: %s", serr.Error())
 	}
 
 	marshaled, serr := json.Marshal(jsondef.BitflyerTicker{
 		ProductCode:     ticker.ProductCode,
-		Timestamp:       *timestamp,
+		Timestamp:       timestamp,
 		TickID:          ticker.TickID,
 		BestBid:         ticker.BestBid,
 		BestAsk:         ticker.BestAsk,
@@ -128,7 +143,7 @@ func (f *bitflyerFormatter) formatTicker(channel string, messageRaw json.RawMess
 // keep in mind that multiple string will be returned
 // error will be returned if channel is not supported to be formatted or
 // message given is in invalid format
-func (f *bitflyerFormatter) Format(channel string, line []byte) ([][]byte, error) {
+func (f *BitflyerFormatter) Format(channel string, line []byte) ([][]byte, error) {
 	// check if this message is a response to subscribe
 	subscribe := jsonstructs.BitflyerSubscribed{}
 	err := json.Unmarshal(line, &subscribe)
@@ -166,7 +181,7 @@ func (f *bitflyerFormatter) Format(channel string, line []byte) ([][]byte, error
 }
 
 // IsSupported returns true if message from given channel is supported to be formatted by this formatted
-func (f *bitflyerFormatter) IsSupported(channel string) bool {
+func (f *BitflyerFormatter) IsSupported(channel string) bool {
 	return strings.HasPrefix(channel, "lightning_board_snapshot_") ||
 		strings.HasPrefix(channel, "lightning_board_") ||
 		strings.HasPrefix(channel, "lightning_executions_") ||

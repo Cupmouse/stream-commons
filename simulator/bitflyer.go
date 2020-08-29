@@ -15,6 +15,7 @@ type bitflyerSimulator struct {
 	filterChannel map[string]bool
 
 	// id versus channel, channels subscribe message has been sent whether or not it actually subscribed map[messageID]channel
+	// FIXME idvch is not preserved: should add new state line
 	idvch map[int]string
 	// map[messageID]channel
 	subscribed []string

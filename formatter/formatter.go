@@ -2,19 +2,18 @@ package formatter
 
 import (
 	"fmt"
-
-	"github.com/exchangedataset/streamcommons/formatter/json"
 )
 
 var formatters = make(map[string]map[string]Formatter)
 
-// Formatter formats raw line into desired format
+// Formatter formats raw line into desired format.
 type Formatter interface {
-	Format(channel string, line []byte) ([][]byte, error)
+	FormatStart(urlStr string) ([][]byte, error)
+	FormatMessage(channel string, line []byte) ([][]byte, error)
 	IsSupported(channel string) bool
 }
 
-// GetFormatter returns the right formatter for given parameters
+// GetFormatter returns the right formatter for given parameters.
 func GetFormatter(exchange string, channels []string, format string) (Formatter, error) {
 	formats, ok := formatters[exchange]
 	if !ok {
@@ -38,8 +37,8 @@ func init() {
 	formatters["bitmex"] = make(map[string]Formatter)
 	formatters["binance"] = make(map[string]Formatter)
 
-	formatters["bitflyer"]["json"] = &json.BitflyerFormatter{}
-	formatters["bitfinex"]["json"] = &json.BitfinexFormatter{}
-	formatters["bitmex"]["json"] = &json.BitmexFormatter{}
-	formatters["binance"]["json"] = &json.BinanceFormatter{}
+	// formatters["bitflyer"]["json"] = new(jsonf.BitflyerFormatter)
+	// formatters["bitfinex"]["json"] = &jsonf.BitfinexFormatter{}
+	// formatters["bitmex"]["json"] = &jsonf.BitmexFormatter{}
+	// formatters["binance"]["json"] = &jsonf.BinanceFormatter{}
 }

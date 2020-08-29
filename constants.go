@@ -8,6 +8,13 @@ const (
 	BinanceQuantityPrecision = 8
 )
 
+// Liquid related
+const (
+	LiquidChannelConnectionEstablished = "connection_established"
+	LiquidChannelPrefixLaddersCash     = "price_ladders_cash_"
+	LiquidChannelPrefixExecutionsCash  = "executions_cash_"
+)
+
 // StateChannelSubscribed is the channel name for subscribed channel message in status line
 const StateChannelSubscribed = "!subscribed"
 

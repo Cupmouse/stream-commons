@@ -23,7 +23,7 @@ func GetS3Object(key string) (io.ReadCloser, error) {
 	})
 	resp, err := req.Send(context.Background())
 	if err != nil {
-		return nil, fmt.Errorf("Sending GetObject request to s3 failed: %s", err.Error())
+		return nil, fmt.Errorf("GetObject: %s", err.Error())
 	}
 	return resp.Body, nil
 }
