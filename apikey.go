@@ -30,7 +30,7 @@ func (a *APIKey) CheckAvalability(db *sql.DB) error {
 	row := db.QueryRow("SELECT exchangedataset.apikey_available(?)", a.Key)
 	err := row.Scan(&apikeyAvailable)
 	if err != nil {
-		return fmt.Errorf("apikey_available procedure call failed: %s", err.Error())
+		return fmt.Errorf("apikey_available procedure call failed: %v", err)
 	}
 	if apikeyAvailable != 1 {
 		return errors.New("API key does not exist or reached the quota or is not enabled")
@@ -49,12 +49,12 @@ func (a *APIKey) IncrementUsed(db *sql.DB, amount int64) (incremented int64, err
 	// increase api-key's quota used bytes
 	res, serr := db.Exec("CALL exchangedataset.increment_apikey_used_now(?, ?)", a.Key, incremented)
 	if serr != nil {
-		err = fmt.Errorf("Call failed: %s", err.Error())
+		err = fmt.Errorf("Call failed: %v", err)
 		return
 	}
 	rows, serr := res.RowsAffected()
 	if serr != nil {
-		err = fmt.Errorf("RowsAffected returned error: %s", err.Error())
+		err = fmt.Errorf("RowsAffected returned error: %v", err)
 		return
 	}
 	if rows != 1 {

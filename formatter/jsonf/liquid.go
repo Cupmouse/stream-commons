@@ -17,7 +17,7 @@ type LiquidFormatter struct {
 }
 
 // FormatStart returns empty slice.
-func (f *LiquidFormatter) FormatStart(urlStr []byte) (formatted [][]byte, err error) {
+func (f *LiquidFormatter) FormatStart(urlStr string) (formatted [][]byte, err error) {
 	return make([][]byte, 0), nil
 }
 
@@ -26,7 +26,7 @@ func (f *LiquidFormatter) FormatMessage(channel string, line []byte) (ret [][]by
 	r := new(jsonstructs.LiquidMessageRoot)
 	serr := json.Unmarshal(line, r)
 	if serr != nil {
-		err = fmt.Errorf("Format: root: %v", serr)
+		err = fmt.Errorf("FormatMessage: root: %v", serr)
 		return
 	}
 	if r.Event == jsonstructs.LiquidEventSubscriptionSucceeded {
@@ -35,7 +35,7 @@ func (f *LiquidFormatter) FormatMessage(channel string, line []byte) (ret [][]by
 		} else if strings.HasPrefix(channel, streamcommons.LiquidChannelPrefixExecutionsCash) {
 			return [][]byte{jsondef.TypeDefLiquidExecutionsCash}, nil
 		} else {
-			return nil, fmt.Errorf("Format: channel not supported: %v", channel)
+			return nil, fmt.Errorf("FormatMessage: channel not supported: %v", channel)
 		}
 	}
 	if strings.HasPrefix(channel, streamcommons.LiquidChannelPrefixLaddersCash) {
@@ -44,17 +44,17 @@ func (f *LiquidFormatter) FormatMessage(channel string, line []byte) (ret [][]by
 		orderbook := make([][]string, 0, 100)
 		serr = json.Unmarshal(r.Data, &orderbook)
 		if serr != nil {
-			return nil, fmt.Errorf("Format: price ladder: %v", orderbook)
+			return nil, fmt.Errorf("FormatMessage: price ladder: %v", orderbook)
 		}
 		ret = make([][]byte, len(orderbook))
 		for i, memOrder := range orderbook {
 			price, serr := strconv.ParseFloat(memOrder[0], 64)
 			if serr != nil {
-				return nil, fmt.Errorf("Format: price: %v", serr)
+				return nil, fmt.Errorf("FormatMessage: price: %v", serr)
 			}
 			quantity, serr := strconv.ParseFloat(memOrder[1], 64)
 			if serr != nil {
-				return nil, fmt.Errorf("Format: quantity: %v", serr)
+				return nil, fmt.Errorf("FormatMessage: quantity: %v", serr)
 			}
 			order := new(jsondef.LiquidPriceLaddersCash)
 			order.Price = price
@@ -65,7 +65,7 @@ func (f *LiquidFormatter) FormatMessage(channel string, line []byte) (ret [][]by
 			}
 			om, serr := json.Marshal(order)
 			if serr != nil {
-				return nil, fmt.Errorf("Format: order marshal: %v", serr)
+				return nil, fmt.Errorf("FormatMessage: order marshal: %v", serr)
 			}
 			ret[i] = om
 		}
@@ -74,7 +74,7 @@ func (f *LiquidFormatter) FormatMessage(channel string, line []byte) (ret [][]by
 		execution := new(jsonstructs.LiquidExecution)
 		serr = json.Unmarshal(r.Data, execution)
 		if serr != nil {
-			return nil, fmt.Errorf("Format: execution: %v", serr)
+			return nil, fmt.Errorf("FormatMessage: execution: %v", serr)
 		}
 		formatted := new(jsondef.LiquidExecutionsCash)
 		createdAt := time.Unix(int64(execution.CreatedAt), 0)
@@ -89,9 +89,9 @@ func (f *LiquidFormatter) FormatMessage(channel string, line []byte) (ret [][]by
 		}
 		fm, serr := json.Marshal(formatted)
 		if serr != nil {
-			return nil, fmt.Errorf("Format: formatted: %v", serr)
+			return nil, fmt.Errorf("FormatMessage: formatted: %v", serr)
 		}
 		ret = [][]byte{fm}
 	}
-	return nil, fmt.Errorf("line not supported")
+	return nil, fmt.Errorf("FormatMessage: line not supported")
 }

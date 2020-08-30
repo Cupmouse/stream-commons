@@ -4,6 +4,8 @@ package streamcommons
 const (
 	// BinanceStreamRESTDepth is the prefix for binance indicating a REST depth channel.
 	BinanceStreamRESTDepth   = "rest_depth"
+	BinanceStreamDepth       = "depth@100ms"
+	BinanceStreamTrade       = "trade"
 	BinancePricePrecision    = 8
 	BinanceQuantityPrecision = 8
 )

@@ -14,7 +14,7 @@ import (
 type BitfinexFormatter struct{}
 
 // FormatStart returns empty slice.
-func (f *BitfinexFormatter) FormatStart(urlStr []byte) ([][]byte, error) {
+func (f *BitfinexFormatter) FormatStart(urlStr string) ([][]byte, error) {
 	return make([][]byte, 0), nil
 }
 
@@ -24,7 +24,7 @@ func (f *BitfinexFormatter) formatBook(channel string, line []byte) ([][]byte, e
 	unmarshaled := jsonstructs.BitfinexBook{}
 	err := json.Unmarshal(line, &unmarshaled)
 	if err != nil {
-		return nil, fmt.Errorf("unmarshal failed: %s", err.Error())
+		return nil, fmt.Errorf("formatBook: line: %v", err)
 	}
 	var orders []jsonstructs.BitfinexBookOrder
 
@@ -48,7 +48,7 @@ func (f *BitfinexFormatter) formatBook(channel string, line []byte) ([][]byte, e
 				orders[i] = orderInterf.(jsonstructs.BitfinexBookOrder)
 			}
 		default:
-			return nil, fmt.Errorf("invalid type for order: %s", reflect.TypeOf(ordersInterf[0]))
+			return nil, fmt.Errorf("formatBook: invalid order type: %s", reflect.TypeOf(ordersInterf[0]))
 		}
 
 		ret := make([][]byte, len(orders))
@@ -70,13 +70,13 @@ func (f *BitfinexFormatter) formatBook(channel string, line []byte) ([][]byte, e
 				Size:  size,
 			})
 			if serr != nil {
-				return nil, fmt.Errorf("failed marshaling: %s", serr.Error())
+				return nil, fmt.Errorf("formatBook: BitfinexBook: %v", serr)
 			}
 			ret[i] = marshaled
 		}
 		return ret, nil
 	default:
-		return nil, fmt.Errorf("invalid type for payload: %s", reflect.TypeOf(unmarshaled[1]))
+		return nil, fmt.Errorf("formatBook: invalid payload type: %s", reflect.TypeOf(unmarshaled[1]))
 	}
 }
 
@@ -86,7 +86,7 @@ func (f *BitfinexFormatter) formatTrades(channel string, line []byte) (formatted
 	unmarshal := jsonstructs.BitfinexTrades{}
 	err = json.Unmarshal(line, &unmarshal)
 	if err != nil {
-		return nil, fmt.Errorf("unmarshal failed: %s", err.Error())
+		return nil, fmt.Errorf("formatTrades: BitfinexTrades: %s", err)
 	}
 
 	var ordersInterf []interface{}
@@ -109,7 +109,7 @@ func (f *BitfinexFormatter) formatTrades(channel string, line []byte) (formatted
 		ordersInterf = unmarshal[1].([]interface{})
 		break
 	default:
-		return nil, fmt.Errorf("invalid type for first element in an array: %s", reflect.TypeOf(unmarshal[1]))
+		return nil, fmt.Errorf("formatTrades: first element invalid type: %s", reflect.TypeOf(unmarshal[1]))
 	}
 
 	var orders []jsonstructs.BitfinexTradesElement
@@ -125,7 +125,7 @@ func (f *BitfinexFormatter) formatTrades(channel string, line []byte) (formatted
 		}
 		break
 	default:
-		err = fmt.Errorf("invalid type for order: %s", reflect.TypeOf(ordersInterf[0]))
+		err = fmt.Errorf("formatTrades: invalid order type: %s", reflect.TypeOf(ordersInterf[0]))
 		return
 	}
 
@@ -157,8 +157,8 @@ func (f *BitfinexFormatter) formatTrades(channel string, line []byte) (formatted
 	return
 }
 
-// Format formats line from channel given and returns an array of them
-func (f *BitfinexFormatter) Format(channel string, line []byte) (formatted [][]byte, err error) {
+// FormatMessage formats line from channel given and returns an array of them
+func (f *BitfinexFormatter) FormatMessage(channel string, line []byte) (formatted [][]byte, err error) {
 	subscribe := jsonstructs.BitfinexSubscribed{}
 	err = json.Unmarshal(line, &subscribe)
 	if err == nil && subscribe.Event == "subscribed" {
@@ -170,7 +170,7 @@ func (f *BitfinexFormatter) Format(channel string, line []byte) (formatted [][]b
 			formatted = [][]byte{jsondef.TypeDefBitfinexTrades}
 			return
 		} else {
-			err = fmt.Errorf("unsupported channel for json formatting: %s", channel)
+			err = fmt.Errorf("FormatMessage: json unsupported channel: %s", channel)
 			return
 		}
 	} else {
@@ -181,7 +181,7 @@ func (f *BitfinexFormatter) Format(channel string, line []byte) (formatted [][]b
 			formatted, err = f.formatTrades(channel, line)
 			return
 		} else {
-			err = fmt.Errorf("unsupported channel for json formatting: %s", channel)
+			err = fmt.Errorf("FormatMessage: json unsupported channel: %s", channel)
 			return
 		}
 	}

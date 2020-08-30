@@ -17,7 +17,7 @@ import (
 func BinanceDecomposeChannel(channel string) (symbol string, stream string, err error) {
 	index := strings.IndexRune(channel, '@')
 	if index == -1 || index == len(channel)-1 {
-		err = errors.New("channel does not have stream name")
+		err = errors.New("BinanceDecomposeChannel: channel does not have stream name")
 		return
 	}
 	return channel[:index], channel[index+1:], nil
@@ -54,9 +54,9 @@ func MakeLargeResponse(statusCode int, body []byte, quotaUsed int64) (response *
 			cerr := bwriter.Close()
 			if cerr != nil {
 				if err != nil {
-					err = fmt.Errorf("failed to close bwriter, original error was: %s", err.Error())
+					err = fmt.Errorf("close bwriter, originally: %v", err)
 				} else {
-					err = errors.New("failed to close bwriter")
+					err = errors.New("close bwriter")
 				}
 			}
 		}()
@@ -67,9 +67,9 @@ func MakeLargeResponse(statusCode int, body []byte, quotaUsed int64) (response *
 			cerr := gwriter.Close()
 			if cerr != nil {
 				if err != nil {
-					err = fmt.Errorf("failed to close gwriter, original error was: %s", err.Error())
+					err = fmt.Errorf("close gwriter: %v, originally: %v", cerr, err)
 				} else {
-					err = errors.New("failed to close gwriter")
+					err = fmt.Errorf("close gwriter: %v", cerr)
 				}
 			}
 		}()
@@ -79,27 +79,27 @@ func MakeLargeResponse(statusCode int, body []byte, quotaUsed int64) (response *
 		ferr := gwriter.Flush()
 		if ferr != nil {
 			if err != nil {
-				err = fmt.Errorf("failed to flush gwriter, original error was: %s", err.Error())
+				err = fmt.Errorf("flush gwriter: %v, originally: %v", ferr, err)
 			} else {
-				err = errors.New("failed to flush gwriter")
+				err = fmt.Errorf("flush gwriter: %v", ferr)
 			}
 			return
 		}
 		cerr := gwriter.Close()
 		if cerr != nil {
 			if err != nil {
-				err = fmt.Errorf("failed to close gwriter, original error was: %s", err.Error())
+				err = fmt.Errorf("close gwriter: %v, originally: %v", cerr, err)
 			} else {
-				err = errors.New("failed to close gwriter")
+				err = fmt.Errorf("close gwriter: %v", cerr)
 			}
 			return
 		}
 		cerr = bwriter.Close()
 		if cerr != nil {
 			if err != nil {
-				err = fmt.Errorf("failed to close bwriter, original error was: %s", err.Error())
+				err = fmt.Errorf("close bwriter: %v, originally: %v", cerr, err)
 			} else {
-				err = errors.New("failed to close bwriter")
+				err = fmt.Errorf("close bwriter: %v", cerr)
 			}
 			return
 		}

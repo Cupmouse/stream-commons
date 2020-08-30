@@ -2,6 +2,8 @@ package formatter
 
 import (
 	"fmt"
+
+	"github.com/exchangedataset/streamcommons/formatter/jsonf"
 )
 
 var formatters = make(map[string]map[string]Formatter)
@@ -37,8 +39,8 @@ func init() {
 	formatters["bitmex"] = make(map[string]Formatter)
 	formatters["binance"] = make(map[string]Formatter)
 
-	// formatters["bitflyer"]["json"] = new(jsonf.BitflyerFormatter)
-	// formatters["bitfinex"]["json"] = &jsonf.BitfinexFormatter{}
-	// formatters["bitmex"]["json"] = &jsonf.BitmexFormatter{}
-	// formatters["binance"]["json"] = &jsonf.BinanceFormatter{}
+	formatters["bitflyer"]["json"] = new(jsonf.BitflyerFormatter)
+	formatters["bitfinex"]["json"] = &jsonf.BitfinexFormatter{}
+	formatters["bitmex"]["json"] = &jsonf.BitmexFormatter{}
+	formatters["binance"]["json"] = &jsonf.BinanceFormatter{}
 }

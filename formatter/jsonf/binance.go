@@ -2,7 +2,6 @@ package jsonf
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net/url"
 	"strconv"
@@ -19,7 +18,7 @@ type BinanceFormatter struct{}
 
 // FormatStart formats start line (URL) and returns the array of known subscribed channel in case the server won't
 // tell the client what channels are successfully subscribed.
-func (f *BinanceFormatter) FormatStart(urlStr []byte) (subscribed []string, err error) {
+func (f *BinanceFormatter) FormatStart(urlStr string) (formatted [][]byte, err error) {
 	u, serr := url.Parse(string(urlStr))
 	if serr != nil {
 		return nil, fmt.Errorf("FormatStart: %v", serr)
@@ -27,55 +26,76 @@ func (f *BinanceFormatter) FormatStart(urlStr []byte) (subscribed []string, err 
 	q := u.Query()
 	streams := q.Get("streams")
 	channels := strings.Split("/", streams)
-	return channels, nil
+	formatted = make([][]byte, len(channels))
+	for i, ch := range channels {
+		_, stream, serr := streamcommons.BinanceDecomposeChannel(ch)
+		if serr != nil {
+			err = fmt.Errorf("FormatStart: %v", serr)
+			return
+		}
+		switch stream {
+		case streamcommons.BinanceStreamDepth:
+			formatted[i] = jsondef.TypeDefBinanceDepth
+		case streamcommons.BinanceStreamTrade:
+			formatted[i] = jsondef.TypeDefBinanceTrade
+		case streamcommons.BinanceStreamRESTDepth:
+			formatted[i] = jsondef.TypeDefBinanceRestDepth
+		default:
+			err = fmt.Errorf("FormatStart: channel not supported: %s", ch)
+			return
+		}
+	}
+	return formatted, nil
 }
 
 // FormatMessage formats messages from server.
 func (f *BinanceFormatter) FormatMessage(channel string, line []byte) (formatted [][]byte, err error) {
-	subscribe := new(jsonstructs.BinanceSubscribe)
-	serr := json.Unmarshal(line, subscribe)
-	if serr != nil {
-		err = fmt.Errorf("subscribe unmarshal: %v", serr)
-		return
-	}
 	symbol, stream, serr := streamcommons.BinanceDecomposeChannel(channel)
 	if serr != nil {
 		err = serr
 		return
 	}
-	if subscribe.Method != "SUBSCRIBE" {
-		// Subscribe message
-		formatted = make([][]byte, 1)
-		if len(subscribe.Params) != 1 {
-			err = errors.New("multiple channels in subscribe")
-			return
-		}
-		if subscribe.Params[0] != channel {
-			err = fmt.Errorf("channel differs: %v, expected: %v", subscribe.Params[0], channel)
-			return
-		}
-		switch stream {
-		case "depth":
-			formatted[0] = jsondef.TypeDefBinanceDepth
-		case "trade":
-			formatted[0] = jsondef.TypeDefBinanceTrade
-		case streamcommons.BinanceStreamRESTDepth:
-			formatted[0] = jsondef.TypeDefBinanceRestDepth
-		}
-		return
-	}
+	// subscribe := new(jsonstructs.BinanceSubscribe)
+	// serr := json.Unmarshal(line, subscribe)
+	// if serr != nil {
+	// 	err = fmt.Errorf("FormatMessage: line: %v", serr)
+	// 	return
+	// }
+	// if subscribe.Method != "SUBSCRIBE" {
+	// 	// Subscribe message
+	// 	formatted = make([][]byte, 1)
+	// 	if len(subscribe.Params) != 1 {
+	// 		err = errors.New("FormatMessage: multiple channels in subscribe")
+	// 		return
+	// 	}
+	// 	if subscribe.Params[0] != channel {
+	// 		err = fmt.Errorf("FormatMessage: channel differs: %v, expected: %v", subscribe.Params[0], channel)
+	// 		return
+	// 	}
+	// 	switch stream {
+	// 	case "depth":
+	// 		formatted[0] = jsondef.TypeDefBinanceDepth
+	// 	case "trade":
+	// 		formatted[0] = jsondef.TypeDefBinanceTrade
+	// 	case streamcommons.BinanceStreamRESTDepth:
+	// 		formatted[0] = jsondef.TypeDefBinanceRestDepth
+	// 	default:
+	// 		err = fmt.Errorf("FormatMessage: channel not supported: %s", )
+	// 	}
+	// 	return
+	// }
 	switch stream {
-	case "depth":
+	case streamcommons.BinanceStreamDepth:
 		root := new(jsonstructs.BinanceReponseRoot)
 		serr := json.Unmarshal(line, root)
 		if serr != nil {
-			err = fmt.Errorf("root unmarshal: %v", serr)
+			err = fmt.Errorf("FormatMessage: BinanceReponseRoot: %v", serr)
 			return
 		}
 		depth := new(jsonstructs.BinanceDepthStream)
 		serr = json.Unmarshal(line, depth)
 		if serr != nil {
-			err = fmt.Errorf("depth unmarshal: %v", serr)
+			err = fmt.Errorf("FormatMessage: BinanceDepthStream: %v", serr)
 			return
 		}
 		formatted = make([][]byte, len(depth.Asks)+len(depth.Bids))
@@ -85,19 +105,19 @@ func (f *BinanceFormatter) FormatMessage(channel string, line []byte) (formatted
 			fo.Pair = depth.Symbol
 			fo.Price, serr = strconv.ParseFloat(order[0], 64)
 			if serr != nil {
-				err = fmt.Errorf("Price ParseFloat: %v", serr)
+				err = fmt.Errorf("FormatMessage: price: %v", serr)
 				return
 			}
 			size, serr := strconv.ParseFloat(order[1], 64)
 			if serr != nil {
-				err = fmt.Errorf("Size ParseFloat: %v", serr)
+				err = fmt.Errorf("FormatMessage: size: %v", serr)
 				return
 			}
 			// Negative size for sell order
 			fo.Size = -size
 			mfo, serr := json.Marshal(fo)
 			if serr != nil {
-				err = fmt.Errorf("order marshal: %v", serr)
+				err = fmt.Errorf("FormatMessage: BinanceDepth: %v", serr)
 				return
 			}
 			formatted[i] = mfo
@@ -108,17 +128,17 @@ func (f *BinanceFormatter) FormatMessage(channel string, line []byte) (formatted
 			fo.Pair = depth.Symbol
 			fo.Price, serr = strconv.ParseFloat(order[0], 64)
 			if serr != nil {
-				err = fmt.Errorf("Price ParseFloat: %v", serr)
+				err = fmt.Errorf("FormatMessage: price: %v", serr)
 				return
 			}
 			fo.Size, serr = strconv.ParseFloat(order[1], 64)
 			if serr != nil {
-				err = fmt.Errorf("Size ParseFloat: %v", serr)
+				err = fmt.Errorf("FormatMessage: size: %v", serr)
 				return
 			}
 			mfo, serr := json.Marshal(fo)
 			if serr != nil {
-				err = fmt.Errorf("order marshal: %v", serr)
+				err = fmt.Errorf("FormatMessage: order marshal: %v", serr)
 				return
 			}
 			formatted[i] = mfo
@@ -130,7 +150,7 @@ func (f *BinanceFormatter) FormatMessage(channel string, line []byte) (formatted
 		depth := new(jsonstructs.BinanceDepthREST)
 		serr := json.Unmarshal(line, depth)
 		if serr != nil {
-			err = fmt.Errorf("depth unmarshal: %v", serr)
+			err = fmt.Errorf("FormatMessage: depth unmarshal: %v", serr)
 			return
 		}
 		formatted = make([][]byte, len(depth.Asks)+len(depth.Bids))
@@ -140,19 +160,19 @@ func (f *BinanceFormatter) FormatMessage(channel string, line []byte) (formatted
 			fo.Pair = symbolCap
 			fo.Price, serr = strconv.ParseFloat(order[0], 64)
 			if serr != nil {
-				err = fmt.Errorf("Price ParseFloat: %v", serr)
+				err = fmt.Errorf("FormatMessage: price: %v", serr)
 				return
 			}
 			size, serr := strconv.ParseFloat(order[1], 64)
 			if serr != nil {
-				err = fmt.Errorf("Size ParseFloat: %v", serr)
+				err = fmt.Errorf("FormatMessage: size: %v", serr)
 				return
 			}
 			// Negative size for sell order
 			fo.Size = -size
 			mfo, serr := json.Marshal(fo)
 			if serr != nil {
-				err = fmt.Errorf("order marshal: %v", serr)
+				err = fmt.Errorf("FormatMessage: ask BinanceDepth: %v", serr)
 				return
 			}
 			formatted[i] = mfo
@@ -163,34 +183,34 @@ func (f *BinanceFormatter) FormatMessage(channel string, line []byte) (formatted
 			fo.Pair = symbolCap
 			fo.Price, serr = strconv.ParseFloat(order[0], 64)
 			if serr != nil {
-				err = fmt.Errorf("Price ParseFloat: %v", serr)
+				err = fmt.Errorf("FormatMessage: price: %v", serr)
 				return
 			}
 			fo.Size, serr = strconv.ParseFloat(order[1], 64)
 			if serr != nil {
-				err = fmt.Errorf("Size ParseFloat: %v", serr)
+				err = fmt.Errorf("FormatMessage: size: %v", serr)
 				return
 			}
 			mfo, serr := json.Marshal(fo)
 			if serr != nil {
-				err = fmt.Errorf("order marshal: %v", serr)
+				err = fmt.Errorf("FormatMessage: bid BinanceDepth: %v", serr)
 				return
 			}
 			formatted[i] = mfo
 			i++
 		}
 		return
-	case "trade":
+	case streamcommons.BinanceStreamTrade:
 		root := new(jsonstructs.BinanceReponseRoot)
 		serr := json.Unmarshal(line, root)
 		if serr != nil {
-			err = fmt.Errorf("root unmarshal: %v", serr)
+			err = fmt.Errorf("FormatMessage: line: %v", serr)
 			return
 		}
 		trade := new(jsonstructs.BinanceTrade)
 		serr = json.Unmarshal(line, trade)
 		if serr != nil {
-			err = fmt.Errorf("trade unmarshal: %v", serr)
+			err = fmt.Errorf("FormatMessage: BinanceTrade: %v", serr)
 			return
 		}
 		ft := new(jsondef.BinanceTrade)
@@ -199,12 +219,12 @@ func (f *BinanceFormatter) FormatMessage(channel string, line []byte) (formatted
 		ft.Pair = trade.Symbol
 		ft.Price, serr = strconv.ParseFloat(trade.Price, 64)
 		if serr != nil {
-			err = fmt.Errorf("Price ParseFloat: %v", serr)
+			err = fmt.Errorf("FormatMessage: price: %v", serr)
 			return
 		}
 		ft.Size, serr = strconv.ParseFloat(trade.Quantity, 64)
 		if serr != nil {
-			err = fmt.Errorf("Quantity ParseFloat: %v", serr)
+			err = fmt.Errorf("FormatMessage: quantity: %v", serr)
 			return
 		}
 		if trade.IsBuyerMarketMaker {
@@ -217,13 +237,13 @@ func (f *BinanceFormatter) FormatMessage(channel string, line []byte) (formatted
 		ft.TradeID = trade.TradeID
 		mft, serr := json.Marshal(ft)
 		if serr != nil {
-			err = fmt.Errorf("trade marshal: %v", serr)
+			err = fmt.Errorf("FormatMessage: BinanceTrade: %v", serr)
 			return
 		}
 		formatted[0] = mft
 		return
 	default:
-		err = fmt.Errorf("unsupported channel: %v", channel)
+		err = fmt.Errorf("FormatMessage: unsupported: %v", channel)
 		return
 	}
 }
@@ -234,6 +254,7 @@ func (f *BinanceFormatter) IsSupported(channel string) bool {
 	if serr != nil {
 		return false
 	}
-	return stream == "depth" || stream == "trade" ||
+	return stream == streamcommons.BinanceStreamDepth ||
+		stream == streamcommons.BinanceStreamTrade ||
 		stream == streamcommons.BinanceStreamRESTDepth
 }
