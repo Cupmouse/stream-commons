@@ -1,4 +1,4 @@
-package jsonf
+package formatter
 
 import (
 	"encoding/json"
@@ -9,16 +9,16 @@ import (
 	"time"
 
 	"github.com/exchangedataset/streamcommons"
-	"github.com/exchangedataset/streamcommons/formatter/jsonf/jsondef"
+	"github.com/exchangedataset/streamcommons/formatter/jsondef"
 	"github.com/exchangedataset/streamcommons/jsonstructs"
 )
 
-// BinanceFormatter is json formatter for Binance.
-type BinanceFormatter struct{}
+// binanceFormatter is json formatter for Binance.
+type binanceFormatter struct{}
 
 // FormatStart formats start line (URL) and returns the array of known subscribed channel in case the server won't
 // tell the client what channels are successfully subscribed.
-func (f *BinanceFormatter) FormatStart(urlStr string) (formatted [][]byte, err error) {
+func (f *binanceFormatter) FormatStart(urlStr string) (formatted []StartReturn, err error) {
 	u, serr := url.Parse(string(urlStr))
 	if serr != nil {
 		return nil, fmt.Errorf("FormatStart: %v", serr)
@@ -26,7 +26,7 @@ func (f *BinanceFormatter) FormatStart(urlStr string) (formatted [][]byte, err e
 	q := u.Query()
 	streams := q.Get("streams")
 	channels := strings.Split(streams, "/")
-	formatted = make([][]byte, len(channels))
+	formatted = make([]StartReturn, len(channels))
 	for i, ch := range channels {
 		_, stream, serr := streamcommons.BinanceDecomposeChannel(ch)
 		if serr != nil {
@@ -35,13 +35,25 @@ func (f *BinanceFormatter) FormatStart(urlStr string) (formatted [][]byte, err e
 		}
 		switch stream {
 		case streamcommons.BinanceStreamDepth:
-			formatted[i] = jsondef.TypeDefBinanceDepth
+			formatted[i] = StartReturn{
+				Channel: ch,
+				Message: jsondef.TypeDefBinanceDepth,
+			}
 		case streamcommons.BinanceStreamTrade:
-			formatted[i] = jsondef.TypeDefBinanceTrade
+			formatted[i] = StartReturn{
+				Channel: ch,
+				Message: jsondef.TypeDefBinanceTrade,
+			}
 		case streamcommons.BinanceStreamTicker:
-			formatted[i] = jsondef.TypeDefBinanceTicker
+			formatted[i] = StartReturn{
+				Channel: ch,
+				Message: jsondef.TypeDefBinanceTicker,
+			}
 		case streamcommons.BinanceStreamRESTDepth:
-			formatted[i] = jsondef.TypeDefBinanceRestDepth
+			formatted[i] = StartReturn{
+				Channel: ch,
+				Message: jsondef.TypeDefBinanceRestDepth,
+			}
 		default:
 			err = fmt.Errorf("FormatStart: channel not supported: %s", ch)
 			return
@@ -51,7 +63,7 @@ func (f *BinanceFormatter) FormatStart(urlStr string) (formatted [][]byte, err e
 }
 
 // FormatMessage formats messages from server.
-func (f *BinanceFormatter) FormatMessage(channel string, line []byte) (formatted [][]byte, err error) {
+func (f *binanceFormatter) FormatMessage(channel string, line []byte) (formatted [][]byte, err error) {
 	symbol, stream, serr := streamcommons.BinanceDecomposeChannel(channel)
 	if serr != nil {
 		err = serr
@@ -374,7 +386,7 @@ func (f *BinanceFormatter) FormatMessage(channel string, line []byte) (formatted
 }
 
 // IsSupported returns true if the given channel is supported by this formatter.
-func (f *BinanceFormatter) IsSupported(channel string) bool {
+func (f *binanceFormatter) IsSupported(channel string) bool {
 	_, stream, serr := streamcommons.BinanceDecomposeChannel(channel)
 	if serr != nil {
 		return false

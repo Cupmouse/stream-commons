@@ -2,21 +2,13 @@ package formatter
 
 import (
 	"fmt"
-
-	"github.com/exchangedataset/streamcommons/formatter/jsonf"
 )
 
 var formatters = make(map[string]map[string]Formatter)
 
-// StartReturn is the struct Formatter returns.
-type StartReturn struct {
-	Channel string
-	Message []byte
-}
-
 // Formatter formats raw line into desired format.
 type Formatter interface {
-	FormatStart(urlStr string) ([][]byte, error)
+	FormatStart(urlStr string) ([]StartReturn, error)
 	FormatMessage(channel string, line []byte) ([][]byte, error)
 	IsSupported(channel string) bool
 }
@@ -45,8 +37,8 @@ func init() {
 	formatters["bitmex"] = make(map[string]Formatter)
 	formatters["binance"] = make(map[string]Formatter)
 
-	formatters["bitflyer"]["json"] = new(jsonf.BitflyerFormatter)
-	formatters["bitfinex"]["json"] = new(jsonf.BitfinexFormatter)
-	formatters["bitmex"]["json"] = new(jsonf.BitmexFormatter)
-	formatters["binance"]["json"] = new(jsonf.BinanceFormatter)
+	formatters["bitflyer"]["json"] = new(bitflyerFormatter)
+	formatters["bitfinex"]["json"] = new(bitfinexFormatter)
+	formatters["bitmex"]["json"] = new(bitmexFormatter)
+	formatters["binance"]["json"] = new(binanceFormatter)
 }

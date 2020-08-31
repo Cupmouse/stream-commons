@@ -1,4 +1,4 @@
-package jsonf
+package formatter
 
 import (
 	"encoding/json"
@@ -8,21 +8,21 @@ import (
 	"time"
 
 	"github.com/exchangedataset/streamcommons"
-	"github.com/exchangedataset/streamcommons/formatter/jsonf/jsondef"
+	"github.com/exchangedataset/streamcommons/formatter/jsondef"
 	"github.com/exchangedataset/streamcommons/jsonstructs"
 )
 
-// LiquidFormatter formats messages from Liquid to json format.
-type LiquidFormatter struct {
+// liquidFormatter formats messages from Liquid to json format.
+type liquidFormatter struct {
 }
 
 // FormatStart returns empty slice.
-func (f *LiquidFormatter) FormatStart(urlStr string) (formatted [][]byte, err error) {
-	return make([][]byte, 0), nil
+func (f *liquidFormatter) FormatStart(urlStr string) (formatted []StartReturn, err error) {
+	return nil, nil
 }
 
 // FormatMessage formats raw messages from Liquid server to json format.
-func (f *LiquidFormatter) FormatMessage(channel string, line []byte) (ret [][]byte, err error) {
+func (f *liquidFormatter) FormatMessage(channel string, line []byte) (ret [][]byte, err error) {
 	r := new(jsonstructs.LiquidMessageRoot)
 	serr := json.Unmarshal(line, r)
 	if serr != nil {

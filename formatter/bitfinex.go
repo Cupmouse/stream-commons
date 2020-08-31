@@ -1,4 +1,4 @@
-package jsonf
+package formatter
 
 import (
 	"encoding/json"
@@ -6,19 +6,19 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/exchangedataset/streamcommons/formatter/jsonf/jsondef"
+	"github.com/exchangedataset/streamcommons/formatter/jsondef"
 	"github.com/exchangedataset/streamcommons/jsonstructs"
 )
 
-// BitfinexFormatter formats raw input from bitfinex api
-type BitfinexFormatter struct{}
+// bitfinexFormatter formats raw input from bitfinex api
+type bitfinexFormatter struct{}
 
 // FormatStart returns empty slice.
-func (f *BitfinexFormatter) FormatStart(urlStr string) ([][]byte, error) {
-	return make([][]byte, 0), nil
+func (f *bitfinexFormatter) FormatStart(urlStr string) ([]StartReturn, error) {
+	return make([]StartReturn, 0), nil
 }
 
-func (f *BitfinexFormatter) formatBook(channel string, line []byte) ([][]byte, error) {
+func (f *bitfinexFormatter) formatBook(channel string, line []byte) ([][]byte, error) {
 	pair := channel[len("book_"):]
 
 	unmarshaled := jsonstructs.BitfinexBook{}
@@ -80,7 +80,7 @@ func (f *BitfinexFormatter) formatBook(channel string, line []byte) ([][]byte, e
 	}
 }
 
-func (f *BitfinexFormatter) formatTrades(channel string, line []byte) (formatted [][]byte, err error) {
+func (f *bitfinexFormatter) formatTrades(channel string, line []byte) (formatted [][]byte, err error) {
 	pair := channel[len("trades_"):]
 
 	unmarshal := jsonstructs.BitfinexTrades{}
@@ -158,7 +158,7 @@ func (f *BitfinexFormatter) formatTrades(channel string, line []byte) (formatted
 }
 
 // FormatMessage formats line from channel given and returns an array of them
-func (f *BitfinexFormatter) FormatMessage(channel string, line []byte) (formatted [][]byte, err error) {
+func (f *bitfinexFormatter) FormatMessage(channel string, line []byte) (formatted [][]byte, err error) {
 	subscribe := jsonstructs.BitfinexSubscribed{}
 	err = json.Unmarshal(line, &subscribe)
 	if err == nil && subscribe.Event == "subscribed" {
@@ -188,7 +188,7 @@ func (f *BitfinexFormatter) FormatMessage(channel string, line []byte) (formatte
 }
 
 // IsSupported returns true if specified channel is supported to be formatted using this formatter
-func (f *BitfinexFormatter) IsSupported(channel string) bool {
+func (f *bitfinexFormatter) IsSupported(channel string) bool {
 	return strings.HasPrefix(channel, "book_") ||
 		strings.HasPrefix(channel, "trades_")
 }
