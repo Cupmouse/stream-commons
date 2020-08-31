@@ -107,7 +107,7 @@ func (f *binanceFormatter) FormatMessage(channel string, line []byte) (formatted
 			return
 		}
 		depth := new(jsonstructs.BinanceDepthStream)
-		serr = json.Unmarshal(line, depth)
+		serr = json.Unmarshal(root.Data, depth)
 		if serr != nil {
 			err = fmt.Errorf("FormatMessage: depth BinanceDepthStream: %v", serr)
 			return
