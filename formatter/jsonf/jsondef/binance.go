@@ -2,16 +2,14 @@ package jsondef
 
 // BinanceDepth is auto-generated
 type BinanceDepth struct {
-	EventTime     string  `json:"eventTime"`
-	FirstUpdateID int64   `json:"firstUpdateID"`
-	FinalUpdateID int64   `json:"finalUpdateID"`
-	Symbol        string  `json:"symbol"`
-	Price         float64 `json:"price"`
-	Size          float64 `json:"size"`
+	EventTime string  `json:"eventTime"`
+	Symbol    string  `json:"symbol"`
+	Price     float64 `json:"price"`
+	Size      float64 `json:"size"`
 }
 
 // TypeDefBinanceDepth is auto-generated
-var TypeDefBinanceDepth = []byte("{\"eventTime\": \"timestamp\", \"firstUpdateID\": \"int\", \"finalUpdateID\": \"int\", \"symbol\": \"symbol\", \"price\": \"price\", \"size\": \"size\"}")
+var TypeDefBinanceDepth = []byte("{\"eventTime\": \"timestamp\", \"symbol\": \"symbol\", \"price\": \"price\", \"size\": \"size\"}")
 
 // BinanceRestDepth is auto-generated
 type BinanceRestDepth struct {

@@ -98,11 +98,13 @@ func (f *BinanceFormatter) FormatMessage(channel string, line []byte) (formatted
 			err = fmt.Errorf("FormatMessage: depth BinanceDepthStream: %v", serr)
 			return
 		}
+		eventTime := strconv.FormatInt(depth.EventTime*int64(time.Millisecond), 10)
 		formatted = make([][]byte, len(depth.Asks)+len(depth.Bids))
 		i := 0
 		for _, order := range depth.Asks {
 			fo := new(jsondef.BinanceDepth)
 			fo.Symbol = depth.Symbol
+			fo.EventTime = eventTime
 			fo.Price, serr = strconv.ParseFloat(order[0], 64)
 			if serr != nil {
 				err = fmt.Errorf("FormatMessage: depth ask price: %v", serr)
@@ -126,6 +128,7 @@ func (f *BinanceFormatter) FormatMessage(channel string, line []byte) (formatted
 		for _, order := range depth.Bids {
 			fo := new(jsondef.BinanceDepth)
 			fo.Symbol = depth.Symbol
+			fo.EventTime = eventTime
 			fo.Price, serr = strconv.ParseFloat(order[0], 64)
 			if serr != nil {
 				err = fmt.Errorf("FormatMessage: depth bid price: %v", serr)
