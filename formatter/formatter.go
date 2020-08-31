@@ -8,6 +8,12 @@ import (
 
 var formatters = make(map[string]map[string]Formatter)
 
+// StartReturn is the struct Formatter returns.
+type StartReturn struct {
+	Channel string
+	Message []byte
+}
+
 // Formatter formats raw line into desired format.
 type Formatter interface {
 	FormatStart(urlStr string) ([][]byte, error)
@@ -40,7 +46,7 @@ func init() {
 	formatters["binance"] = make(map[string]Formatter)
 
 	formatters["bitflyer"]["json"] = new(jsonf.BitflyerFormatter)
-	formatters["bitfinex"]["json"] = &jsonf.BitfinexFormatter{}
-	formatters["bitmex"]["json"] = &jsonf.BitmexFormatter{}
-	formatters["binance"]["json"] = &jsonf.BinanceFormatter{}
+	formatters["bitfinex"]["json"] = new(jsonf.BitfinexFormatter)
+	formatters["bitmex"]["json"] = new(jsonf.BitmexFormatter)
+	formatters["binance"]["json"] = new(jsonf.BinanceFormatter)
 }

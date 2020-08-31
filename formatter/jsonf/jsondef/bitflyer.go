@@ -2,23 +2,23 @@ package jsondef
 
 // BitflyerBoard is auto-generated
 type BitflyerBoard struct {
-	Pair  string  `json:"pair"`
-	Price float64 `json:"price"`
-	Size  float64 `json:"size"`
+	Symbol string  `json:"symbol"`
+	Price  float64 `json:"price"`
+	Size   float64 `json:"size"`
 }
 
 // TypeDefBitflyerBoard is auto-generated
-var TypeDefBitflyerBoard = []byte("{\"pair\": \"pair\", \"price\": \"price\", \"size\": \"size\"}")
+var TypeDefBitflyerBoard = []byte("{\"symbol\": \"symbol\", \"price\": \"price\", \"size\": \"size\"}")
 
 // BitflyerExecutions is auto-generated
 type BitflyerExecutions struct {
-	Pair  string  `json:"pair"`
-	Price float64 `json:"price"`
-	Size  float64 `json:"size"`
+	Symbol string  `json:"symbol"`
+	Price  float64 `json:"price"`
+	Size   float64 `json:"size"`
 }
 
 // TypeDefBitflyerExecutions is auto-generated
-var TypeDefBitflyerExecutions = []byte("{\"pair\": \"pair\", \"price\": \"price\", \"size\": \"size\"}")
+var TypeDefBitflyerExecutions = []byte("{\"symbol\": \"symbol\", \"price\": \"price\", \"size\": \"size\"}")
 
 // BitflyerTicker is auto-generated
 type BitflyerTicker struct {

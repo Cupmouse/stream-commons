@@ -64,10 +64,10 @@ func (f *BitfinexFormatter) formatBook(channel string, line []byte) ([][]byte, e
 			}
 
 			marshaled, serr := json.Marshal(jsondef.BitfinexBook{
-				Pair:  pair,
-				Price: price,
-				Count: count,
-				Size:  size,
+				Symbol: pair,
+				Price:  price,
+				Count:  count,
+				Size:   size,
 			})
 			if serr != nil {
 				return nil, fmt.Errorf("formatBook: BitfinexBook: %v", serr)
@@ -142,7 +142,7 @@ func (f *BitfinexFormatter) formatTrades(channel string, line []byte) (formatted
 
 		var marshaled []byte
 		marshaled, err = json.Marshal(jsondef.BitfinexTrades{
-			Pair:      pair,
+			Symbol:    pair,
 			OrderID:   orderID,
 			Timestamp: timestamp,
 			Price:     price,

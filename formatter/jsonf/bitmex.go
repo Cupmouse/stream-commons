@@ -61,10 +61,10 @@ func (f *BitmexFormatter) formatOrderBookL2(dataRaw json.RawMessage) (ret [][]by
 			size = -size
 		}
 		marshaled, serr := json.Marshal(jsondef.BitmexOrderBookL2{
-			Pair:  order.Symbol,
-			Price: order.Price,
-			ID:    order.ID,
-			Size:  size,
+			Symbol: order.Symbol,
+			Price:  order.Price,
+			ID:     order.ID,
+			Size:   size,
 		})
 		if serr != nil {
 			err = fmt.Errorf("formatOrderBookL2: BitmexOrderBookL2: %v", serr)
@@ -90,7 +90,7 @@ func (f *BitmexFormatter) formatTrade(dataRaw json.RawMessage) (ret [][]byte, er
 		}
 		timestamp, serr := bitmexParseTimestamp(&elem.Timestamp)
 		marshaled, serr := json.Marshal(jsondef.BitmexTrade{
-			Pair:            elem.Symbol,
+			Symbol:          elem.Symbol,
 			Price:           elem.Price,
 			Size:            size,
 			Timestamp:       *timestamp,

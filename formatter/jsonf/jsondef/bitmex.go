@@ -2,18 +2,18 @@ package jsondef
 
 // BitmexOrderBookL2 is auto-generated
 type BitmexOrderBookL2 struct {
-	Pair  string  `json:"pair"`
-	Price float64 `json:"price"`
-	ID    int64   `json:"id"`
-	Size  float64 `json:"size"`
+	Symbol string  `json:"symbol"`
+	Price  float64 `json:"price"`
+	ID     int64   `json:"id"`
+	Size   float64 `json:"size"`
 }
 
 // TypeDefBitmexOrderBookL2 is auto-generated
-var TypeDefBitmexOrderBookL2 = []byte("{\"pair\": \"pair\", \"price\": \"price\", \"id\": \"int\", \"size\": \"size\"}")
+var TypeDefBitmexOrderBookL2 = []byte("{\"symbol\": \"symbol\", \"price\": \"price\", \"id\": \"int\", \"size\": \"size\"}")
 
 // BitmexTrade is auto-generated
 type BitmexTrade struct {
-	Pair            string   `json:"pair"`
+	Symbol          string   `json:"symbol"`
 	Price           float64  `json:"price"`
 	Size            float64  `json:"size"`
 	Timestamp       string   `json:"timestamp"`
@@ -25,7 +25,7 @@ type BitmexTrade struct {
 }
 
 // TypeDefBitmexTrade is auto-generated
-var TypeDefBitmexTrade = []byte("{\"pair\": \"pair\", \"price\": \"price\", \"size\": \"size\", \"timestamp\": \"timestamp\", \"trdMatchId\": \"guid\", \"tickDirection\": \"string\", \"grossValue\": \"int\", \"homeNotional\": \"float\", \"foreignNotional\": \"float\"}")
+var TypeDefBitmexTrade = []byte("{\"symbol\": \"symbol\", \"price\": \"price\", \"size\": \"size\", \"timestamp\": \"timestamp\", \"trdMatchId\": \"guid\", \"tickDirection\": \"string\", \"grossValue\": \"int\", \"homeNotional\": \"float\", \"foreignNotional\": \"float\"}")
 
 // BitmexInstrument is auto-generated
 type BitmexInstrument struct {
@@ -135,7 +135,7 @@ type BitmexInstrument struct {
 }
 
 // TypeDefBitmexInstrument is auto-generated
-var TypeDefBitmexInstrument = []byte("{\"symbol\": \"string\", \"rootSymbol\": \"string\", \"state\": \"string\", \"typ\": \"string\", \"listing\": \"timestamp\", \"front\": \"timestamp\", \"expiry\": \"timestamp\", \"settle\": \"timestamp\", \"relistInterval\": \"duration\", \"inverseLeg\": \"string\", \"sellLeg\": \"string\", \"buyLeg\": \"string\", \"optionStrikePcnt\": \"float\", \"optionStrikeRound\": \"float\", \"optionStrikePrice\": \"float\", \"optionMultiplier\": \"float\", \"positionCurrency\": \"string\", \"underlying\": \"string\", \"quoteCurrency\": \"string\", \"underlyingSymbol\": \"string\", \"reference\": \"string\", \"referenceSymbol\": \"string\", \"calcInterval\": \"duration\", \"publishInterval\": \"duration\", \"publishTime\": \"duration\", \"maxOrderQty\": \"int\", \"maxPrice\": \"float\", \"lotSize\": \"int\", \"tickSize\": \"float\", \"multiplier\": \"int\", \"settlCurrency\": \"string\", \"underlyingToPositionMultiplier\": \"int\", \"underlyingToSettleMultiplier\": \"int\", \"quoteToSettleMultiplier\": \"int\", \"isQuanto\": \"boolean\", \"isInverse\": \"boolean\", \"initMargin\": \"float\", \"maintMargin\": \"float\", \"riskLimit\": \"int\", \"riskStep\": \"int\", \"limit\": \"float\", \"capped\": \"boolean\", \"taxed\": \"boolean\", \"deleverage\": \"boolean\", \"makerFee\": \"float\", \"takerFee\": \"float\", \"settlementFee\": \"float\", \"insuranceFee\": \"float\", \"fundingBaseSymbol\": \"string\", \"fundingQuoteSymbol\": \"string\", \"fundingPremiumSymbol\": \"string\", \"fundingTimestamp\": \"timestamp\", \"fundingInterval\": \"duration\", \"fundingRate\": \"float\", \"indicativeFundingRate\": \"float\", \"rebalanceTimestamp\": \"timestamp\", \"rebalanceInterval\": \"duration\", \"openingTimestamp\": \"timestamp\", \"closingTimestamp\": \"timestamp\", \"sessionInterval\": \"duration\", \"prevClosePrice\": \"float\", \"limitDownPrice\": \"float\", \"limitUpPrice\": \"float\", \"bankruptLimitDownPrice\": \"float\", \"bankruptLimitUpPrice\": \"float\", \"prevTotalVolume\": \"int\", \"totalVolume\": \"int\", \"volume\": \"int\", \"volume24h\": \"int\", \"prevTotalTurnover\": \"int\", \"totalTurnover\": \"int\", \"turnover\": \"int\", \"turnover24h\": \"int\", \"homeNotional24h\": \"float\", \"foreignNotional24h\": \"float\", \"prevPrice24h\": \"float\", \"vwap\": \"float\", \"highPrice\": \"float\", \"lowPrice\": \"float\", \"lastPrice\": \"float\", \"lastPriceProtected\": \"float\", \"lastTickDirection\": \"string\", \"lastChangePcnt\": \"float\", \"bidPrice\": \"float\", \"midPrice\": \"float\", \"askPrice\": \"float\", \"impactBidPrice\": \"float\", \"impactMidPrice\": \"float\", \"impactAskPrice\": \"float\", \"hasLiquidity\": \"boolean\", \"openInterest\": \"int\", \"openValue\": \"int\", \"fairMethod\": \"string\", \"fairBasisRate\": \"float\", \"fairBasis\": \"float\", \"fairPrice\": \"float\", \"markMethod\": \"string\", \"markPrice\": \"float\", \"indicativeTaxRate\": \"float\", \"indicativeSettlePrice\": \"float\", \"optionUnderlyingPrice\": \"float\", \"settledPrice\": \"float\", \"timestamp\": \"timestamp\"}")
+var TypeDefBitmexInstrument = []byte("{\"symbol\": \"symbol\", \"rootSymbol\": \"string\", \"state\": \"string\", \"typ\": \"string\", \"listing\": \"timestamp\", \"front\": \"timestamp\", \"expiry\": \"timestamp\", \"settle\": \"timestamp\", \"relistInterval\": \"duration\", \"inverseLeg\": \"string\", \"sellLeg\": \"string\", \"buyLeg\": \"string\", \"optionStrikePcnt\": \"float\", \"optionStrikeRound\": \"float\", \"optionStrikePrice\": \"float\", \"optionMultiplier\": \"float\", \"positionCurrency\": \"string\", \"underlying\": \"string\", \"quoteCurrency\": \"string\", \"underlyingSymbol\": \"string\", \"reference\": \"string\", \"referenceSymbol\": \"string\", \"calcInterval\": \"duration\", \"publishInterval\": \"duration\", \"publishTime\": \"duration\", \"maxOrderQty\": \"int\", \"maxPrice\": \"float\", \"lotSize\": \"int\", \"tickSize\": \"float\", \"multiplier\": \"int\", \"settlCurrency\": \"string\", \"underlyingToPositionMultiplier\": \"int\", \"underlyingToSettleMultiplier\": \"int\", \"quoteToSettleMultiplier\": \"int\", \"isQuanto\": \"boolean\", \"isInverse\": \"boolean\", \"initMargin\": \"float\", \"maintMargin\": \"float\", \"riskLimit\": \"int\", \"riskStep\": \"int\", \"limit\": \"float\", \"capped\": \"boolean\", \"taxed\": \"boolean\", \"deleverage\": \"boolean\", \"makerFee\": \"float\", \"takerFee\": \"float\", \"settlementFee\": \"float\", \"insuranceFee\": \"float\", \"fundingBaseSymbol\": \"string\", \"fundingQuoteSymbol\": \"string\", \"fundingPremiumSymbol\": \"string\", \"fundingTimestamp\": \"timestamp\", \"fundingInterval\": \"duration\", \"fundingRate\": \"float\", \"indicativeFundingRate\": \"float\", \"rebalanceTimestamp\": \"timestamp\", \"rebalanceInterval\": \"duration\", \"openingTimestamp\": \"timestamp\", \"closingTimestamp\": \"timestamp\", \"sessionInterval\": \"duration\", \"prevClosePrice\": \"float\", \"limitDownPrice\": \"float\", \"limitUpPrice\": \"float\", \"bankruptLimitDownPrice\": \"float\", \"bankruptLimitUpPrice\": \"float\", \"prevTotalVolume\": \"int\", \"totalVolume\": \"int\", \"volume\": \"int\", \"volume24h\": \"int\", \"prevTotalTurnover\": \"int\", \"totalTurnover\": \"int\", \"turnover\": \"int\", \"turnover24h\": \"int\", \"homeNotional24h\": \"float\", \"foreignNotional24h\": \"float\", \"prevPrice24h\": \"float\", \"vwap\": \"float\", \"highPrice\": \"float\", \"lowPrice\": \"float\", \"lastPrice\": \"float\", \"lastPriceProtected\": \"float\", \"lastTickDirection\": \"string\", \"lastChangePcnt\": \"float\", \"bidPrice\": \"float\", \"midPrice\": \"float\", \"askPrice\": \"float\", \"impactBidPrice\": \"float\", \"impactMidPrice\": \"float\", \"impactAskPrice\": \"float\", \"hasLiquidity\": \"boolean\", \"openInterest\": \"int\", \"openValue\": \"int\", \"fairMethod\": \"string\", \"fairBasisRate\": \"float\", \"fairBasis\": \"float\", \"fairPrice\": \"float\", \"markMethod\": \"string\", \"markPrice\": \"float\", \"indicativeTaxRate\": \"float\", \"indicativeSettlePrice\": \"float\", \"optionUnderlyingPrice\": \"float\", \"settledPrice\": \"float\", \"timestamp\": \"timestamp\"}")
 
 // BitmexInsurance is auto-generated
 type BitmexInsurance struct {
@@ -157,7 +157,7 @@ type BitmexFunding struct {
 }
 
 // TypeDefBitmexFunding is auto-generated
-var TypeDefBitmexFunding = []byte("{\"timestamp\": \"timestamp\", \"symbol\": \"string\", \"fundingInterval\": \"duration\", \"fundingRate\": \"float\", \"fundingRateDaily\": \"float\"}")
+var TypeDefBitmexFunding = []byte("{\"timestamp\": \"timestamp\", \"symbol\": \"symbol\", \"fundingInterval\": \"duration\", \"fundingRate\": \"float\", \"fundingRateDaily\": \"float\"}")
 
 // BitmexSettlement is auto-generated
 type BitmexSettlement struct {
@@ -173,7 +173,7 @@ type BitmexSettlement struct {
 }
 
 // TypeDefBitmexSettlement is auto-generated
-var TypeDefBitmexSettlement = []byte("{\"timestamp\": \"timestamp\", \"symbol\": \"string\", \"settlementType\": \"string\", \"settledPrice\": \"float\", \"optionStrikePrice\": \"float\", \"optionUnderlyingPrice\": \"float\", \"bankrupt\": \"int\", \"taxBase\": \"int\", \"taxRate\": \"float\"}")
+var TypeDefBitmexSettlement = []byte("{\"timestamp\": \"timestamp\", \"symbol\": \"symbol\", \"settlementType\": \"string\", \"settledPrice\": \"float\", \"optionStrikePrice\": \"float\", \"optionUnderlyingPrice\": \"float\", \"bankrupt\": \"int\", \"taxBase\": \"int\", \"taxRate\": \"float\"}")
 
 // BitmexLiquidation is auto-generated
 type BitmexLiquidation struct {
@@ -185,4 +185,4 @@ type BitmexLiquidation struct {
 }
 
 // TypeDefBitmexLiquidation is auto-generated
-var TypeDefBitmexLiquidation = []byte("{\"orderID\": \"guid\", \"symbol\": \"string\", \"side\": \"string\", \"price\": \"float\", \"leavesQty\": \"int\"}")
+var TypeDefBitmexLiquidation = []byte("{\"orderID\": \"guid\", \"symbol\": \"symbol\", \"side\": \"string\", \"price\": \"float\", \"leavesQty\": \"int\"}")

@@ -46,8 +46,8 @@ func (f *BitflyerFormatter) formatBoard(channel string, messageRaw json.RawMessa
 	for _, ask := range message.Asks {
 		// size == 0 if due to be removed
 		marshaled, serr := json.Marshal(jsondef.BitflyerBoard{
-			Pair:  pair,
-			Price: ask.Price,
+			Symbol: pair,
+			Price:  ask.Price,
 			// size is negative if sell
 			Size: -ask.Size,
 		})
@@ -59,9 +59,9 @@ func (f *BitflyerFormatter) formatBoard(channel string, messageRaw json.RawMessa
 	}
 	for _, bid := range message.Bids {
 		marshaled, serr := json.Marshal(jsondef.BitflyerBoard{
-			Pair:  pair,
-			Price: bid.Price,
-			Size:  bid.Size,
+			Symbol: pair,
+			Price:  bid.Price,
+			Size:   bid.Size,
 		})
 		if serr != nil {
 			return nil, fmt.Errorf("formatBoard: bid BitflyerBoard: %v", serr)
@@ -95,9 +95,9 @@ func (f *BitflyerFormatter) formatExecutions(channel string, messageRaw json.Raw
 			}
 		}
 		marshaled, serr := json.Marshal(jsondef.BitflyerExecutions{
-			Pair:  pair,
-			Price: element.Price,
-			Size:  size,
+			Symbol: pair,
+			Price:  element.Price,
+			Size:   size,
 		})
 		if serr != nil {
 			return nil, fmt.Errorf("formatExecutions BitflyerExecutions: %v", serr)

@@ -103,6 +103,33 @@ type BinanceDepthStream struct {
 	Asks [][]string `json:"a"`
 }
 
+// BinanceTickerStream is the message from ticker channel.
+type BinanceTickerStream struct {
+	EventType                   string `json:"e"`
+	EventTime                   int64  `json:"E"`
+	Symbol                      string `json:"s"`
+	PriceChange                 string `json:"p"`
+	PriceChanePercent           string `json:"P"`
+	WeightedAveragePrice        string `json:"w"`
+	FirstTradePrice             string `json:"x"`
+	LastPrice                   string `json:"c"`
+	LastQuantity                string `json:"Q"`
+	BestBidPrice                string `json:"b"`
+	BestBidQuantity             string `json:"B"`
+	BestAskPrice                string `json:"a"`
+	BestAskQuantity             string `json:"A"`
+	OpenPrice                   string `json:"o"`
+	HighPrice                   string `json:"h"`
+	LowPrice                    string `json:"l"`
+	TotalTradedBaseAssetVolume  string `json:"v"`
+	TotalTradedQuoteAssetVolume string `json:"q"`
+	StatisticsOpenTime          int64  `json:"O"`
+	StatisticsCloseTime         int64  `json:"C"`
+	FirstTradeID                int64  `json:"F"`
+	LastTradeID                 int64  `json:"L"`
+	TotalNumberOfTrades         int64  `json:"n"`
+}
+
 // BinanceDepthREST is the response of depth REST
 type BinanceDepthREST struct {
 	LastUpdateID int64 `json:"lastUpdateId"`

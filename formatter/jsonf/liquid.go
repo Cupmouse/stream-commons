@@ -78,9 +78,9 @@ func (f *LiquidFormatter) FormatMessage(channel string, line []byte) (ret [][]by
 		}
 		formatted := new(jsondef.LiquidExecutionsCash)
 		createdAt := time.Unix(int64(execution.CreatedAt), 0)
-		formatted.CreatedAt = createdAt.UnixNano()
+		formatted.CreatedAt = strconv.FormatInt(createdAt.UnixNano(), 10)
 		formatted.ID = execution.ID
-		formatted.Pair = channel[len(streamcommons.LiquidChannelPrefixExecutionsCash):]
+		formatted.Symbol = channel[len(streamcommons.LiquidChannelPrefixExecutionsCash):]
 		formatted.Price = execution.Price
 		if execution.TakerSide == "sell" {
 			formatted.Size = -execution.Quantity

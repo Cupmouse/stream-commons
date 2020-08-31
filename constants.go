@@ -6,6 +6,7 @@ const (
 	BinanceStreamRESTDepth   = "rest_depth"
 	BinanceStreamDepth       = "depth@100ms"
 	BinanceStreamTrade       = "trade"
+	BinanceStreamTicker      = "ticker"
 	BinancePricePrecision    = 8
 	BinanceQuantityPrecision = 8
 )
