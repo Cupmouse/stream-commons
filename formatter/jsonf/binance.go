@@ -38,6 +38,8 @@ func (f *BinanceFormatter) FormatStart(urlStr string) (formatted [][]byte, err e
 			formatted[i] = jsondef.TypeDefBinanceDepth
 		case streamcommons.BinanceStreamTrade:
 			formatted[i] = jsondef.TypeDefBinanceTrade
+		case streamcommons.BinanceStreamTicker:
+			formatted[i] = jsondef.TypeDefBinanceTicker
 		case streamcommons.BinanceStreamRESTDepth:
 			formatted[i] = jsondef.TypeDefBinanceRestDepth
 		default:
