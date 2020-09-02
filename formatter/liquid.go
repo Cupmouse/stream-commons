@@ -22,7 +22,7 @@ func (f *liquidFormatter) FormatStart(urlStr string) (formatted []StartReturn, e
 }
 
 // FormatMessage formats raw messages from Liquid server to json format.
-func (f *liquidFormatter) FormatMessage(channel string, line []byte) (ret [][]byte, err error) {
+func (f *liquidFormatter) FormatMessage(channel string, line []byte) (formatted [][]byte, err error) {
 	r := new(jsonstructs.LiquidMessageRoot)
 	serr := json.Unmarshal(line, r)
 	if serr != nil {
@@ -46,7 +46,7 @@ func (f *liquidFormatter) FormatMessage(channel string, line []byte) (ret [][]by
 		if serr != nil {
 			return nil, fmt.Errorf("FormatMessage: price ladder: %v", orderbook)
 		}
-		ret = make([][]byte, len(orderbook))
+		formatted = make([][]byte, len(orderbook))
 		for i, memOrder := range orderbook {
 			price, serr := strconv.ParseFloat(memOrder[0], 64)
 			if serr != nil {
@@ -67,31 +67,37 @@ func (f *liquidFormatter) FormatMessage(channel string, line []byte) (ret [][]by
 			if serr != nil {
 				return nil, fmt.Errorf("FormatMessage: order marshal: %v", serr)
 			}
-			ret[i] = om
+			formatted[i] = om
 		}
-		return ret, nil
+		return formatted, nil
 	} else if strings.HasPrefix(channel, streamcommons.LiquidChannelPrefixExecutionsCash) {
 		execution := new(jsonstructs.LiquidExecution)
 		serr = json.Unmarshal(r.Data, execution)
 		if serr != nil {
 			return nil, fmt.Errorf("FormatMessage: execution: %v", serr)
 		}
-		formatted := new(jsondef.LiquidExecutionsCash)
+		lec := new(jsondef.LiquidExecutionsCash)
 		createdAt := time.Unix(int64(execution.CreatedAt), 0)
-		formatted.CreatedAt = strconv.FormatInt(createdAt.UnixNano(), 10)
-		formatted.ID = execution.ID
-		formatted.Symbol = channel[len(streamcommons.LiquidChannelPrefixExecutionsCash):]
-		formatted.Price = execution.Price
+		lec.CreatedAt = strconv.FormatInt(createdAt.UnixNano(), 10)
+		lec.ID = execution.ID
+		lec.Symbol = channel[len(streamcommons.LiquidChannelPrefixExecutionsCash):]
+		lec.Price = execution.Price
 		if execution.TakerSide == "sell" {
-			formatted.Size = -execution.Quantity
+			lec.Size = -execution.Quantity
 		} else {
-			formatted.Size = execution.Quantity
+			lec.Size = execution.Quantity
 		}
-		fm, serr := json.Marshal(formatted)
+		fm, serr := json.Marshal(lec)
 		if serr != nil {
 			return nil, fmt.Errorf("FormatMessage: formatted: %v", serr)
 		}
-		ret = [][]byte{fm}
+		formatted = [][]byte{fm}
+		return formatted, nil
 	}
 	return nil, fmt.Errorf("FormatMessage: line not supported")
+}
+
+func (f *liquidFormatter) IsSupported(channel string) bool {
+	return strings.HasPrefix(channel, streamcommons.LiquidChannelPrefixLaddersCash) ||
+		strings.HasPrefix(channel, streamcommons.LiquidChannelPrefixExecutionsCash)
 }
