@@ -428,15 +428,14 @@ func (s *binanceSimulator) sortAsksByPrice(symbol string) []float64 {
 }
 
 func (s *binanceSimulator) sortBidsByPrice(symbol string) []float64 {
-	sorted := make([]float64, len(s.orderBooks[symbol].Asks))
+	sorted := make([]float64, len(s.orderBooks[symbol].Bids))
 	i := 0
-	for price := range s.orderBooks[symbol].Asks {
+	for price := range s.orderBooks[symbol].Bids {
 		sorted[i] = price
 		i++
 	}
 	sort.Sort(sort.Reverse(sort.Float64Slice(sorted)))
 	return sorted
-
 }
 
 func (s *binanceSimulator) TakeSnapshot() (snapshot []Snapshot, err error) {
@@ -451,19 +450,16 @@ func (s *binanceSimulator) TakeSnapshot() (snapshot []Snapshot, err error) {
 	copy(sortedSubscribed, s.subscribed)
 	sort.Strings(sortedSubscribed)
 	for i, subChannel := range sortedSubscribed {
-		subscribe := new(jsonstructs.BinanceSubscribe)
-		subscribe.Initialize()
+		subResp := new(jsonstructs.BinanceSubscribeResponse)
 		// ID should not be 0
-		subscribe.ID = i + 1
-		subscribe.Params = []string{subChannel}
-
-		subMarshaled, serr := json.Marshal(subscribe)
+		subResp.ID = i + 1
+		subMarshaled, serr := json.Marshal(subResp)
 		if serr != nil {
-			err = fmt.Errorf("subscribe marshal: %v", serr)
+			err = fmt.Errorf("subscribed marshal: %v", serr)
 			return
 		}
 		snapshot = append(snapshot, Snapshot{
-			Channel:  streamcommons.StateChannelSubscribed,
+			Channel:  subChannel,
 			Snapshot: subMarshaled,
 		})
 	}
