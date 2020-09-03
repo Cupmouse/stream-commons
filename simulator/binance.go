@@ -47,7 +47,7 @@ type binanceSimulator struct {
 func (s *binanceSimulator) ProcessStart(line []byte) error {
 	u, serr := url.Parse(string(line))
 	if serr != nil {
-		return serr
+		return fmt.Errorf("ProcessStart: %v", serr)
 	}
 	query := u.Query()
 	channels := strings.Split(query.Get("streams"), "/")
@@ -62,12 +62,12 @@ func (s *binanceSimulator) ProcessStart(line []byte) error {
 		s.subscribed = append(s.subscribed, ch)
 		symbol, stream, serr := streamcommons.BinanceDecomposeChannel(ch)
 		if serr != nil {
-			return serr
+			return fmt.Errorf("ProcessStart: %v", serr)
 		}
-		if stream == "depth@100ms" {
+		if stream == streamcommons.BinanceStreamDepth {
 			// Create new orderbook in memory
 			if _, ok := s.orderBooks[symbol]; ok {
-				return errors.New("received subscribe confirmation twice")
+				return errors.New("ProcessStart: received subscribe confirmation twice")
 			}
 			orderbook := new(binanceOrderbook)
 			orderbook.Asks = make(map[float64]float64, 10000)
@@ -81,6 +81,11 @@ func (s *binanceSimulator) ProcessStart(line []byte) error {
 }
 
 func (s *binanceSimulator) ProcessSend(line []byte) (channel string, err error) {
+	defer func() {
+		if err != nil {
+			err = fmt.Errorf("ProcessSend: %v", err)
+		}
+	}()
 	channel = streamcommons.ChannelUnknown
 	sub := new(jsonstructs.BinanceSubscribe)
 	serr := json.Unmarshal(line, sub)
@@ -102,6 +107,11 @@ func (s *binanceSimulator) ProcessSend(line []byte) (channel string, err error) 
 }
 
 func binanceProcessSide(asks [][]string, m map[float64]float64) (err error) {
+	defer func() {
+		if err != nil {
+			err = fmt.Errorf("binanceProcessSide: %v", err)
+		}
+	}()
 	for _, order := range asks {
 		price, serr := strconv.ParseFloat(order[0], 64)
 		if serr != nil {
@@ -125,6 +135,11 @@ func binanceProcessSide(asks [][]string, m map[float64]float64) (err error) {
 }
 
 func (s *binanceSimulator) processMessageDepth(channel string, depth *jsonstructs.BinanceDepthStream) (err error) {
+	defer func() {
+		if err != nil {
+			err = fmt.Errorf("processMessageDepth: %v", err)
+		}
+	}()
 	symbol, _, serr := streamcommons.BinanceDecomposeChannel(channel)
 	if serr != nil {
 		return serr
@@ -158,6 +173,11 @@ func (s *binanceSimulator) processMessageDepth(channel string, depth *jsonstruct
 }
 
 func (s *binanceSimulator) ProcessMessageWebSocket(line []byte) (channel string, err error) {
+	defer func() {
+		if err != nil {
+			err = fmt.Errorf("ProcessMessageWebSocket: %v", err)
+		}
+	}()
 	channel = streamcommons.ChannelUnknown
 
 	root := new(jsonstructs.BinanceReponseRoot)
@@ -171,7 +191,7 @@ func (s *binanceSimulator) ProcessMessageWebSocket(line []byte) (channel string,
 		err = serr
 		return
 	}
-	if stream == "depth@100ms" {
+	if stream == streamcommons.BinanceStreamDepth {
 		depth := new(jsonstructs.BinanceDepthStream)
 		serr := json.Unmarshal(root.Data, depth)
 		if serr != nil {
@@ -196,6 +216,11 @@ func (s *binanceSimulator) ProcessMessageWebSocket(line []byte) (channel string,
 }
 
 func (s *binanceSimulator) ProcessMessageChannelKnown(channel string, line []byte) (err error) {
+	defer func() {
+		if err != nil {
+			err = fmt.Errorf("ProcessMessageChannelKnown: %v", err)
+		}
+	}()
 	symbol, stream, serr := streamcommons.BinanceDecomposeChannel(channel)
 	if serr != nil {
 		return serr
@@ -258,6 +283,11 @@ func (s *binanceSimulator) ProcessMessageChannelKnown(channel string, line []byt
 }
 
 func (s *binanceSimulator) ProcessState(channel string, line []byte) (err error) {
+	defer func() {
+		if err != nil {
+			err = fmt.Errorf("ProcessState: %v", err)
+		}
+	}()
 	if channel == streamcommons.StateChannelSubscribed {
 		subscribed := make([]string, 0, 100)
 		// Read subscribed state
@@ -285,7 +315,7 @@ func (s *binanceSimulator) ProcessState(channel string, line []byte) (err error)
 		return
 	}
 	switch stream {
-	case "depth@100ms":
+	case streamcommons.BinanceStreamRESTDepth:
 		if s.filterChannel != nil {
 			// Apply filter
 			for _, subChannel := range s.subscribed {
@@ -322,6 +352,11 @@ func (s *binanceSimulator) ProcessState(channel string, line []byte) (err error)
 }
 
 func (s *binanceSimulator) TakeStateSnapshot() (snapshots []Snapshot, err error) {
+	defer func() {
+		if err != nil {
+			err = fmt.Errorf("TakeStateSnapshot: %v", err)
+		}
+	}()
 	if s.filterChannel != nil {
 		// If channel filtering is enabled, this should not be called
 		err = errors.New("channel filter is enabled")
@@ -405,6 +440,11 @@ func (s *binanceSimulator) sortBidsByPrice(symbol string) []float64 {
 }
 
 func (s *binanceSimulator) TakeSnapshot() (snapshot []Snapshot, err error) {
+	defer func() {
+		if err != nil {
+			err = fmt.Errorf("TakeSnapshot: %v", err)
+		}
+	}()
 	snapshot = make([]Snapshot, 0, 10)
 	// Take snapshots of subscribed channels
 	sortedSubscribed := make([]string, len(s.subscribed))
@@ -428,12 +468,7 @@ func (s *binanceSimulator) TakeSnapshot() (snapshot []Snapshot, err error) {
 		})
 	}
 	// Take snapshots of orderbooks
-	for _, channel := range s.sortOrderbooksBySymbol() {
-		symbol, _, serr := streamcommons.BinanceDecomposeChannel(channel)
-		if serr != nil {
-			err = serr
-			return
-		}
+	for _, symbol := range s.sortOrderbooksBySymbol() {
 		memOrderbook := s.orderBooks[symbol]
 		depth := new(jsonstructs.BinanceDepthREST)
 		depth.Asks = make([][]string, len(memOrderbook.Asks))

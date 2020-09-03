@@ -66,38 +66,32 @@ func (f *binanceFormatter) FormatStart(urlStr string) (formatted []StartReturn, 
 func (f *binanceFormatter) FormatMessage(channel string, line []byte) (formatted [][]byte, err error) {
 	symbol, stream, serr := streamcommons.BinanceDecomposeChannel(channel)
 	if serr != nil {
-		err = serr
+		err = fmt.Errorf("FormatMessage: %v", serr)
 		return
 	}
-	// subscribe := new(jsonstructs.BinanceSubscribe)
-	// serr := json.Unmarshal(line, subscribe)
-	// if serr != nil {
-	// 	err = fmt.Errorf("FormatMessage: line: %v", serr)
-	// 	return
-	// }
-	// if subscribe.Method != "SUBSCRIBE" {
-	// 	// Subscribe message
-	// 	formatted = make([][]byte, 1)
-	// 	if len(subscribe.Params) != 1 {
-	// 		err = errors.New("FormatMessage: multiple channels in subscribe")
-	// 		return
-	// 	}
-	// 	if subscribe.Params[0] != channel {
-	// 		err = fmt.Errorf("FormatMessage: channel differs: %v, expected: %v", subscribe.Params[0], channel)
-	// 		return
-	// 	}
-	// 	switch stream {
-	// 	case "depth":
-	// 		formatted[0] = jsondef.TypeDefBinanceDepth
-	// 	case "trade":
-	// 		formatted[0] = jsondef.TypeDefBinanceTrade
-	// 	case streamcommons.BinanceStreamRESTDepth:
-	// 		formatted[0] = jsondef.TypeDefBinanceRestDepth
-	// 	default:
-	// 		err = fmt.Errorf("FormatMessage: channel not supported: %s", )
-	// 	}
-	// 	return
-	// }
+	subscribed := new(jsonstructs.BinanceSubscribeResponse)
+	serr = json.Unmarshal(line, subscribed)
+	if serr != nil {
+		err = fmt.Errorf("FormatMessage: line: %v", serr)
+		return
+	}
+	if subscribed.ID != 0 {
+		// Subscribe message
+		formatted = make([][]byte, 1)
+		switch stream {
+		case streamcommons.BinanceStreamDepth:
+			formatted[0] = jsondef.TypeDefBinanceDepth
+		case streamcommons.BinanceStreamTrade:
+			formatted[0] = jsondef.TypeDefBinanceTrade
+		case streamcommons.BinanceStreamRESTDepth:
+			formatted[0] = jsondef.TypeDefBinanceRestDepth
+		case streamcommons.BinanceStreamTicker:
+			formatted[0] = jsondef.TypeDefBinanceTicker
+		default:
+			err = fmt.Errorf("FormatMessage: channel not supported: %s", channel)
+		}
+		return
+	}
 	switch stream {
 	case streamcommons.BinanceStreamDepth:
 		root := new(jsonstructs.BinanceReponseRoot)
