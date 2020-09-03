@@ -28,13 +28,15 @@ type binanceOrderbook struct {
 	IsLastSnapshot bool
 	// Last received FinalUpdateID to check for missing messages
 	LastFinalUpdateID int64
+	// If this orderbook already received an initial state
+	ReceivedREST bool
 	// Orderbook differences waiting to be applied for the arrival of a REST message
 	// nil if a REST message has already been received
 	Differences []*jsonstructs.BinanceDepthStream
 }
 
 type binanceSimulator struct {
-	filterChannel map[string]bool
+	channelFilter map[string]bool
 	// IDs and its channel a client sent a subscription to
 	idCh map[int]string
 	// Slice of channels a client subscribed to and a server agreed
@@ -52,9 +54,9 @@ func (s *binanceSimulator) ProcessStart(line []byte) error {
 	query := u.Query()
 	channels := strings.Split(query.Get("streams"), "/")
 	for _, ch := range channels {
-		if s.filterChannel != nil {
-			_, ok := s.filterChannel[ch]
-			if !ok {
+		// Apply filter
+		if s.channelFilter != nil {
+			if _, ok := s.channelFilter[ch]; !ok {
 				continue
 			}
 		}
@@ -64,46 +66,49 @@ func (s *binanceSimulator) ProcessStart(line []byte) error {
 		if serr != nil {
 			return fmt.Errorf("ProcessStart: %v", serr)
 		}
-		if stream == streamcommons.BinanceStreamRESTDepth {
-			// Create new orderbook in memory
+		if stream == streamcommons.BinanceStreamDepth {
 			if _, ok := s.orderBooks[symbol]; ok {
 				return errors.New("ProcessStart: received subscribe confirmation twice")
 			}
+			// Create new orderbook in memory
 			orderbook := new(binanceOrderbook)
 			orderbook.Asks = make(map[float64]float64, 10000)
 			orderbook.Bids = make(map[float64]float64, 10000)
 			// Create a slice to store difference messages before a REST message arrives
 			orderbook.Differences = make([]*jsonstructs.BinanceDepthStream, 0, 1000)
 			s.orderBooks[symbol] = orderbook
+			if serr != nil {
+				return fmt.Errorf("ProcessStart: %v", serr)
+			}
 		}
 	}
 	return nil
 }
 
 func (s *binanceSimulator) ProcessSend(line []byte) (channel string, err error) {
-	defer func() {
-		if err != nil {
-			err = fmt.Errorf("ProcessSend: %v", err)
-		}
-	}()
-	channel = streamcommons.ChannelUnknown
-	sub := new(jsonstructs.BinanceSubscribe)
-	serr := json.Unmarshal(line, sub)
-	if serr != nil {
-		err = fmt.Errorf("subscribe unmarshal: %v", serr)
-		return
-	}
-	if len(sub.Params) != 1 {
-		// Subscription have to be done one at the time
-		err = errors.New("len(subscribe.Params) != 1")
-		return
-	}
-	if sub.ID == 0 {
-		err = errors.New("use of 0 as subscription id")
-	}
-	channel = sub.Params[0]
-	s.idCh[sub.ID] = channel
-	return
+	// defer func() {
+	// 	if err != nil {
+	// 		err = fmt.Errorf("ProcessSend: %v", err)
+	// 	}
+	// }()
+	// channel = streamcommons.ChannelUnknown
+	// sub := new(jsonstructs.BinanceSubscribe)
+	// serr := json.Unmarshal(line, sub)
+	// if serr != nil {
+	// 	err = fmt.Errorf("subscribe unmarshal: %v", serr)
+	// 	return
+	// }
+	// if len(sub.Params) != 1 {
+	// 	// Subscription have to be done one at the time
+	// 	err = errors.New("len(subscribe.Params) != 1")
+	// 	return
+	// }
+	// if sub.ID == 0 {
+	// 	err = errors.New("use of 0 as subscription id")
+	// }
+	// channel = sub.Params[0]
+	// s.idCh[sub.ID] = channel
+	return streamcommons.ChannelUnknown, nil
 }
 
 func binanceProcessSide(asks [][]string, m map[float64]float64) (err error) {
@@ -188,7 +193,7 @@ func (s *binanceSimulator) ProcessMessageWebSocket(line []byte) (channel string,
 		return
 	}
 	if stream == streamcommons.BinanceStreamDepth {
-		_, ok := s.filterChannel[symbol+"@"+streamcommons.BinanceStreamRESTDepth]
+		_, ok := s.channelFilter[symbol+"@"+streamcommons.BinanceStreamRESTDepth]
 		if !ok {
 			// Don't have to be tracked
 			return
@@ -200,7 +205,7 @@ func (s *binanceSimulator) ProcessMessageWebSocket(line []byte) (channel string,
 			return
 		}
 		orderbook := s.orderBooks[symbol]
-		if orderbook.LastFinalUpdateID != 0 {
+		if orderbook.ReceivedREST {
 			// Already received a REST message
 			err = s.processMessageDepth(symbol, depth)
 			return
@@ -271,6 +276,7 @@ func (s *binanceSimulator) ProcessMessageChannelKnown(channel string, line []byt
 		}
 		// To free memory space
 		orderbook.Differences = nil
+		orderbook.ReceivedREST = true
 		return
 	}
 	wsChannel, serr := s.ProcessMessageWebSocket(line)
@@ -297,14 +303,13 @@ func (s *binanceSimulator) ProcessState(channel string, line []byte) (err error)
 			err = fmt.Errorf("subscribed state unmarshal: %v", serr)
 			return
 		}
-		if s.filterChannel == nil {
+		if s.channelFilter == nil {
 			// Filter is disabled, add all
 			s.subscribed = subscribed
 		} else {
 			// Apply filter to it
 			for _, stateChannel := range subscribed {
-				_, ok := s.filterChannel[stateChannel]
-				if ok {
+				if _, ok := s.channelFilter[stateChannel]; ok {
 					s.subscribed = append(s.subscribed, stateChannel)
 				}
 			}
@@ -315,15 +320,12 @@ func (s *binanceSimulator) ProcessState(channel string, line []byte) (err error)
 	if serr != nil {
 		return
 	}
-	switch stream {
-	case streamcommons.BinanceStreamRESTDepth:
-		if s.filterChannel != nil {
+	if stream == streamcommons.BinanceStreamRESTDepth {
+		// State for rest depth
+		if s.channelFilter != nil {
 			// Apply filter
-			for _, subChannel := range s.subscribed {
-				_, ok := s.filterChannel[subChannel]
-				if !ok {
-					return
-				}
+			if _, ok := s.channelFilter[channel]; !ok {
+				return
 			}
 		}
 		state := new(binanceOrderbookState)
@@ -342,14 +344,14 @@ func (s *binanceSimulator) ProcessState(channel string, line []byte) (err error)
 			ob.Bids[arr[0]] = arr[1]
 		}
 		ob.Differences = state.Differences
+		ob.ReceivedREST = state.LastFinalUpdateID != 0
 		ob.IsLastSnapshot = state.IsLastSnapshot
 		ob.LastFinalUpdateID = state.LastFinalUpdateID
 		s.orderBooks[symbol] = ob
 		return
-	default:
-		err = fmt.Errorf("unknown stream name: %v", stream)
-		return
 	}
+	err = fmt.Errorf("unknown stream name: %v", stream)
+	return
 }
 
 func (s *binanceSimulator) TakeStateSnapshot() (snapshots []Snapshot, err error) {
@@ -358,7 +360,7 @@ func (s *binanceSimulator) TakeStateSnapshot() (snapshots []Snapshot, err error)
 			err = fmt.Errorf("TakeStateSnapshot: %v", err)
 		}
 	}()
-	if s.filterChannel != nil {
+	if s.channelFilter != nil {
 		// If channel filtering is enabled, this should not be called
 		err = errors.New("channel filter is enabled")
 		return
@@ -466,7 +468,7 @@ func (s *binanceSimulator) TakeSnapshot() (snapshot []Snapshot, err error) {
 	}
 	// Take snapshots of orderbooks
 	for _, symbol := range s.sortOrderbooksBySymbol() {
-		_, ok := s.filterChannel[symbol+"@"+streamcommons.BinanceStreamRESTDepth]
+		_, ok := s.channelFilter[symbol+"@"+streamcommons.BinanceStreamRESTDepth]
 		if !ok {
 			continue
 		}
@@ -505,9 +507,9 @@ func (s *binanceSimulator) TakeSnapshot() (snapshot []Snapshot, err error) {
 func newBinanceSimulator(channelFilter []string) *binanceSimulator {
 	s := new(binanceSimulator)
 	if channelFilter != nil {
-		s.filterChannel = make(map[string]bool)
+		s.channelFilter = make(map[string]bool)
 		for _, ch := range channelFilter {
-			s.filterChannel[ch] = true
+			s.channelFilter[ch] = true
 		}
 	}
 	s.idCh = make(map[int]string)

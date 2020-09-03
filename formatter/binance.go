@@ -167,7 +167,7 @@ func (f *binanceFormatter) FormatMessage(channel string, line []byte) (formatted
 		formatted = make([][]byte, len(depth.Asks)+len(depth.Bids))
 		i := 0
 		for _, order := range depth.Asks {
-			fo := new(jsondef.BinanceDepth)
+			fo := new(jsondef.BinanceRestDepth)
 			fo.Symbol = symbolCap
 			fo.Price, serr = strconv.ParseFloat(order[0], 64)
 			if serr != nil {
