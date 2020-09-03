@@ -131,8 +131,7 @@ func (s *bitfinexSimulator) ProcessMessageWebSocket(line []byte) (channel string
 		if s.filterChannel == nil {
 			s.subscribed = append(s.subscribed, subscribedStruct.ChanID)
 		} else {
-			_, ok := s.filterChannel[channel]
-			if ok {
+			if _, ok := s.filterChannel[channel]; ok {
 				s.subscribed = append(s.subscribed, subscribedStruct.ChanID)
 			}
 		}
@@ -145,6 +144,9 @@ func (s *bitfinexSimulator) ProcessMessageWebSocket(line []byte) (channel string
 	}
 	chanID := int(decoded[0].(float64))
 	channel = s.idvch[chanID]
+	if _, ok := s.filterChannel[channel]; !ok {
+		return
+	}
 	if strings.HasPrefix(channel, "book_") {
 		switch decoded[1].(type) {
 		case string:
@@ -186,8 +188,7 @@ func (s *bitfinexSimulator) ProcessState(channel string, line []byte) (err error
 			if s.filterChannel == nil {
 				s.subscribed = append(s.subscribed, chanID)
 			} else {
-				_, ok := s.filterChannel[ch]
-				if ok {
+				if _, ok := s.filterChannel[ch]; ok {
 					s.subscribed = append(s.subscribed, chanID)
 				}
 			}
@@ -197,8 +198,7 @@ func (s *bitfinexSimulator) ProcessState(channel string, line []byte) (err error
 
 	// from here we process message, if channel is not in filter-in map then return
 	if s.filterChannel != nil {
-		_, ok := s.filterChannel[channel]
-		if !ok {
+		if _, ok := s.filterChannel[channel]; !ok {
 			return
 		}
 	}
