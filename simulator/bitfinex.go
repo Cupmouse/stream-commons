@@ -21,7 +21,8 @@ type bitfinexBookElement struct {
 type bitfinexSimulator struct {
 	filterChannel map[string]bool
 	// map[chanID]channel
-	subscribed map[int]string
+	idvch      map[int]string
+	subscribed []int
 	// map[channel]map[price]order
 	orderBooks map[string]map[float64]bitfinexBookElement
 }
@@ -122,15 +123,17 @@ func (s *bitfinexSimulator) ProcessMessageWebSocket(line []byte) (channel string
 			}
 			return
 		}
-		// this is a subscribed response message from bitfinex
-		// store channel id and its name into subscribed map
+		// This is a subscribed response message from bitfinex
+		// Dtore channel id and its name into map
 		channel = fmt.Sprintf("%s_%s", subscribedStruct.Channel, subscribedStruct.Symbol)
+		s.idvch[subscribedStruct.ChanID] = channel
+		// Store to subscribed slice
 		if s.filterChannel == nil {
-			s.subscribed[subscribedStruct.ChanID] = channel
+			s.subscribed = append(s.subscribed, subscribedStruct.ChanID)
 		} else {
 			_, ok := s.filterChannel[channel]
 			if ok {
-				s.subscribed[subscribedStruct.ChanID] = channel
+				s.subscribed = append(s.subscribed, subscribedStruct.ChanID)
 			}
 		}
 		return
@@ -141,7 +144,7 @@ func (s *bitfinexSimulator) ProcessMessageWebSocket(line []byte) (channel string
 		return
 	}
 	chanID := int(decoded[0].(float64))
-	channel = s.subscribed[chanID]
+	channel = s.idvch[chanID]
 	if strings.HasPrefix(channel, "book_") {
 		switch decoded[1].(type) {
 		case string:
@@ -179,12 +182,13 @@ func (s *bitfinexSimulator) ProcessState(channel string, line []byte) (err error
 		}
 		// register subscribed channels
 		for ch, chanID := range decoded {
+			s.idvch[chanID] = ch
 			if s.filterChannel == nil {
-				s.subscribed[chanID] = ch
+				s.subscribed = append(s.subscribed, chanID)
 			} else {
 				_, ok := s.filterChannel[ch]
 				if ok {
-					s.subscribed[chanID] = ch
+					s.subscribed = append(s.subscribed, chanID)
 				}
 			}
 		}
@@ -212,17 +216,6 @@ func (s *bitfinexSimulator) ProcessState(channel string, line []byte) (err error
 	}
 
 	return
-}
-
-func sortBitfinexSubscribed(m map[int]string) []int {
-	keys := make([]int, len(m))
-	i := 0
-	for k := range m {
-		keys[i] = k
-		i++
-	}
-	sort.Ints(keys)
-	return keys
 }
 
 func sortBitfinexBooks(m map[string]map[float64]bitfinexBookElement) []string {
@@ -255,10 +248,9 @@ func (s *bitfinexSimulator) TakeStateSnapshot() (snapshots []Snapshot, err error
 		return
 	}
 	snapshots = make([]Snapshot, 0, 5)
-
 	subscribed := make(jsonstructs.BitfinexStatusSubscribed)
-	for channel, chanID := range s.subscribed {
-		subscribed[chanID] = channel
+	for _, chanID := range s.subscribed {
+		subscribed[s.idvch[chanID]] = chanID
 	}
 	var subscribedMarshaled []byte
 	subscribedMarshaled, err = json.Marshal(subscribed)
@@ -296,8 +288,11 @@ func (s *bitfinexSimulator) TakeSnapshot() (snapshots []Snapshot, err error) {
 	snapshots = make([]Snapshot, 0, 5)
 
 	// subscribed
-	for _, chanID := range sortBitfinexSubscribed(s.subscribed) {
-		channel := s.subscribed[chanID]
+	subSorted := make([]int, len(s.subscribed))
+	copy(subSorted, s.subscribed)
+	sort.Ints(subSorted)
+	for _, chanID := range subSorted {
+		channel := s.idvch[chanID]
 		// this is needed to extract symbol and pair
 		ind := strings.Index(channel, "_")
 		bitfCh := channel[:ind]
@@ -323,14 +318,14 @@ func (s *bitfinexSimulator) TakeSnapshot() (snapshots []Snapshot, err error) {
 	for _, channel := range sortBitfinexBooks(s.orderBooks) {
 		memOrderBook := s.orderBooks[channel]
 		chanID := -1
-		for subChanID, subChan := range s.subscribed {
+		for subChanID, subChan := range s.idvch {
 			if subChan == channel {
 				chanID = subChanID
 				break
 			}
 		}
 		if chanID == -1 {
-			err = fmt.Errorf("channel is not in subscribed map: %s", channel)
+			err = fmt.Errorf("channel is not in idvch map: %s", channel)
 			return
 		}
 		book := new(jsonstructs.BitfinexBook)
@@ -374,7 +369,8 @@ func newBitfinexSimulator(filterChannel []string) Simulator {
 			gen.filterChannel[ch] = true
 		}
 	}
-	gen.subscribed = make(map[int]string)
+	gen.idvch = make(map[int]string)
+	gen.subscribed = make([]int, 0, 100)
 	gen.orderBooks = make(map[string]map[float64]bitfinexBookElement)
 	return &gen
 }

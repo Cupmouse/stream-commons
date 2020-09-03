@@ -64,7 +64,7 @@ func (s *binanceSimulator) ProcessStart(line []byte) error {
 		if serr != nil {
 			return fmt.Errorf("ProcessStart: %v", serr)
 		}
-		if stream == streamcommons.BinanceStreamDepth {
+		if stream == streamcommons.BinanceStreamRESTDepth {
 			// Create new orderbook in memory
 			if _, ok := s.orderBooks[symbol]; ok {
 				return errors.New("ProcessStart: received subscribe confirmation twice")
@@ -134,16 +134,12 @@ func binanceProcessSide(asks [][]string, m map[float64]float64) (err error) {
 	return nil
 }
 
-func (s *binanceSimulator) processMessageDepth(channel string, depth *jsonstructs.BinanceDepthStream) (err error) {
+func (s *binanceSimulator) processMessageDepth(symbol string, depth *jsonstructs.BinanceDepthStream) (err error) {
 	defer func() {
 		if err != nil {
 			err = fmt.Errorf("processMessageDepth: %v", err)
 		}
 	}()
-	symbol, _, serr := streamcommons.BinanceDecomposeChannel(channel)
-	if serr != nil {
-		return serr
-	}
 	orderbook := s.orderBooks[symbol]
 	if orderbook.IsLastSnapshot {
 		// First event should have this traits
@@ -192,6 +188,11 @@ func (s *binanceSimulator) ProcessMessageWebSocket(line []byte) (channel string,
 		return
 	}
 	if stream == streamcommons.BinanceStreamDepth {
+		_, ok := s.filterChannel[symbol+"@"+streamcommons.BinanceStreamRESTDepth]
+		if !ok {
+			// Don't have to be tracked
+			return
+		}
 		depth := new(jsonstructs.BinanceDepthStream)
 		serr := json.Unmarshal(root.Data, depth)
 		if serr != nil {
@@ -201,7 +202,7 @@ func (s *binanceSimulator) ProcessMessageWebSocket(line []byte) (channel string,
 		orderbook := s.orderBooks[symbol]
 		if orderbook.LastFinalUpdateID != 0 {
 			// Already received a REST message
-			err = s.processMessageDepth(channel, depth)
+			err = s.processMessageDepth(symbol, depth)
 			return
 		}
 		if len(orderbook.Differences) > 100 {
@@ -263,7 +264,7 @@ func (s *binanceSimulator) ProcessMessageChannelKnown(channel string, line []byt
 		}
 		// Apply all differences stored
 		for ; i < len(differences); i++ {
-			serr := s.processMessageDepth(symbol+"@depth@100ms", differences[i])
+			serr := s.processMessageDepth(symbol, differences[i])
 			if serr != nil {
 				return fmt.Errorf("apply depth: %v", serr)
 			}
@@ -465,6 +466,10 @@ func (s *binanceSimulator) TakeSnapshot() (snapshot []Snapshot, err error) {
 	}
 	// Take snapshots of orderbooks
 	for _, symbol := range s.sortOrderbooksBySymbol() {
+		_, ok := s.filterChannel[symbol+"@"+streamcommons.BinanceStreamRESTDepth]
+		if !ok {
+			continue
+		}
 		memOrderbook := s.orderBooks[symbol]
 		depth := new(jsonstructs.BinanceDepthREST)
 		depth.Asks = make([][]string, len(memOrderbook.Asks))

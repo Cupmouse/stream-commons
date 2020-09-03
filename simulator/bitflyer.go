@@ -258,8 +258,13 @@ func (s *bitflyerSimulator) TakeSnapshot() (snapshots []Snapshot, err error) {
 	}
 
 	for _, channel := range sortBitflyerOrderbooks(s.orderBooks) {
+		_, ok := s.filterChannel[channel]
+		if !ok {
+			// Filter out
+			continue
+		}
 		book := new(jsonstructs.BitflyerRoot)
-		// this is needed to initialize the constant value
+		// This is needed to initialize the constant value
 		book.Initialize()
 		book.Params.Channel = channel
 
