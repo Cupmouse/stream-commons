@@ -192,17 +192,17 @@ func (s *bitmexSimulator) ProcessState(channel string, line []byte) (err error) 
 		}
 		for _, subscrCh := range subscribed {
 			// record subscribed channel only if it is in target channel
-			_, ok := s.filterChannel[subscrCh]
-			if ok {
+			if _, ok := s.filterChannel[subscrCh]; ok {
 				s.subscribed[subscrCh] = true
 			}
 		}
 		return
 	}
 
-	_, ok := s.filterChannel[channel]
-	if !ok {
-		return
+	if s.filterChannel != nil {
+		if _, ok := s.filterChannel[channel]; !ok {
+			return
+		}
 	}
 
 	if channel == "orderBookL2" {

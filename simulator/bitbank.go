@@ -201,9 +201,11 @@ func (s *bitbankSimulator) ProcessState(channel string, line []byte) (err error)
 			}
 		}
 	}
-	_, ok := s.filterChannel[channel]
-	if !ok {
-		return
+	if s.filterChannel != nil {
+		_, ok := s.filterChannel[channel]
+		if !ok {
+			return
+		}
 	}
 	if strings.HasPrefix(channel, "depth_whole_") {
 		// Depth whole state (orderbook state)

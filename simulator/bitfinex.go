@@ -144,8 +144,10 @@ func (s *bitfinexSimulator) ProcessMessageWebSocket(line []byte) (channel string
 	}
 	chanID := int(decoded[0].(float64))
 	channel = s.idvch[chanID]
-	if _, ok := s.filterChannel[channel]; !ok {
-		return
+	if s.filterChannel != nil {
+		if _, ok := s.filterChannel[channel]; !ok {
+			return
+		}
 	}
 	if strings.HasPrefix(channel, "book_") {
 		switch decoded[1].(type) {

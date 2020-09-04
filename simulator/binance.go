@@ -28,8 +28,6 @@ type binanceOrderbook struct {
 	IsLastSnapshot bool
 	// Last received FinalUpdateID to check for missing messages
 	LastFinalUpdateID int64
-	// If this orderbook already received an initial state
-	ReceivedREST bool
 	// Orderbook differences waiting to be applied for the arrival of a REST message
 	// nil if a REST message has already been received
 	Differences []*jsonstructs.BinanceDepthStream
@@ -193,10 +191,11 @@ func (s *binanceSimulator) ProcessMessageWebSocket(line []byte) (channel string,
 		return
 	}
 	if stream == streamcommons.BinanceStreamDepth {
-		_, ok := s.channelFilter[symbol+"@"+streamcommons.BinanceStreamRESTDepth]
-		if !ok {
-			// Don't have to be tracked
-			return
+		if s.channelFilter != nil {
+			if _, ok := s.channelFilter[symbol+"@"+streamcommons.BinanceStreamRESTDepth]; !ok {
+				// Don't have to be tracked
+				return
+			}
 		}
 		depth := new(jsonstructs.BinanceDepthStream)
 		serr := json.Unmarshal(root.Data, depth)
@@ -205,7 +204,7 @@ func (s *binanceSimulator) ProcessMessageWebSocket(line []byte) (channel string,
 			return
 		}
 		orderbook := s.orderBooks[symbol]
-		if orderbook.ReceivedREST {
+		if orderbook.LastFinalUpdateID != 0 {
 			// Already received a REST message
 			err = s.processMessageDepth(symbol, depth)
 			return
@@ -276,7 +275,6 @@ func (s *binanceSimulator) ProcessMessageChannelKnown(channel string, line []byt
 		}
 		// To free memory space
 		orderbook.Differences = nil
-		orderbook.ReceivedREST = true
 		return
 	}
 	wsChannel, serr := s.ProcessMessageWebSocket(line)
@@ -344,7 +342,6 @@ func (s *binanceSimulator) ProcessState(channel string, line []byte) (err error)
 			ob.Bids[arr[0]] = arr[1]
 		}
 		ob.Differences = state.Differences
-		ob.ReceivedREST = state.LastFinalUpdateID != 0
 		ob.IsLastSnapshot = state.IsLastSnapshot
 		ob.LastFinalUpdateID = state.LastFinalUpdateID
 		s.orderBooks[symbol] = ob
@@ -468,9 +465,11 @@ func (s *binanceSimulator) TakeSnapshot() (snapshot []Snapshot, err error) {
 	}
 	// Take snapshots of orderbooks
 	for _, symbol := range s.sortOrderbooksBySymbol() {
-		_, ok := s.channelFilter[symbol+"@"+streamcommons.BinanceStreamRESTDepth]
-		if !ok {
-			continue
+		if s.channelFilter != nil {
+			_, ok := s.channelFilter[symbol+"@"+streamcommons.BinanceStreamRESTDepth]
+			if !ok {
+				continue
+			}
 		}
 		memOrderbook := s.orderBooks[symbol]
 		depth := new(jsonstructs.BinanceDepthREST)
