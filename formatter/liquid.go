@@ -41,10 +41,21 @@ func (f *liquidFormatter) FormatMessage(channel string, line []byte) (formatted 
 	if strings.HasPrefix(channel, streamcommons.LiquidChannelPrefixLaddersCash) {
 		// `true` is ask
 		side := strings.HasSuffix(channel, "sell")
-		orderbook := make([][]string, 0, 100)
-		serr = json.Unmarshal(r.Data, &orderbook)
+		channelPrefixStart := strings.LastIndexByte(channel, '_')
+		if channelPrefixStart == -1 {
+			return nil, fmt.Errorf("FormatMessage: price ladder no underscore in channel")
+		}
+		symbol := channel[len(streamcommons.LiquidChannelPrefixLaddersCash):channelPrefixStart]
+		// Data for book is encoded in string
+		dataStr := new(string)
+		serr = json.Unmarshal(r.Data, dataStr)
 		if serr != nil {
-			return nil, fmt.Errorf("FormatMessage: price ladder: %v", orderbook)
+			return nil, fmt.Errorf("FormatMessage: price ladder dataStr: %v", serr)
+		}
+		orderbook := make([][]string, 0, 100)
+		serr = json.Unmarshal([]byte(*dataStr), &orderbook)
+		if serr != nil {
+			return nil, fmt.Errorf("FormatMessage: price ladder orderbook: %v", serr)
 		}
 		formatted = make([][]byte, len(orderbook))
 		for i, memOrder := range orderbook {
@@ -57,6 +68,7 @@ func (f *liquidFormatter) FormatMessage(channel string, line []byte) (formatted 
 				return nil, fmt.Errorf("FormatMessage: quantity: %v", serr)
 			}
 			order := new(jsondef.LiquidPriceLaddersCash)
+			order.Symbol = symbol
 			order.Price = price
 			if side {
 				order.Size = -quantity
@@ -72,7 +84,12 @@ func (f *liquidFormatter) FormatMessage(channel string, line []byte) (formatted 
 		return formatted, nil
 	} else if strings.HasPrefix(channel, streamcommons.LiquidChannelPrefixExecutionsCash) {
 		execution := new(jsonstructs.LiquidExecution)
-		serr = json.Unmarshal(r.Data, execution)
+		dataStr := new(string)
+		serr = json.Unmarshal(r.Data, dataStr)
+		if serr != nil {
+			return nil, fmt.Errorf("FormatMessage: execution dataStr: %v", serr)
+		}
+		serr = json.Unmarshal([]byte(*dataStr), execution)
 		if serr != nil {
 			return nil, fmt.Errorf("FormatMessage: execution: %v", serr)
 		}
@@ -98,6 +115,6 @@ func (f *liquidFormatter) FormatMessage(channel string, line []byte) (formatted 
 }
 
 func (f *liquidFormatter) IsSupported(channel string) bool {
-	return strings.HasPrefix(channel, streamcommons.LiquidChannelPrefixLaddersCash) ||
+	return (strings.HasPrefix(channel, streamcommons.LiquidChannelPrefixLaddersCash) && (strings.HasSuffix(channel, "buy")) || strings.HasSuffix(channel, "sell")) ||
 		strings.HasPrefix(channel, streamcommons.LiquidChannelPrefixExecutionsCash)
 }
