@@ -6,6 +6,8 @@ import (
 	"reflect"
 	"strings"
 
+	"github.com/exchangedataset/streamcommons"
+
 	"github.com/exchangedataset/streamcommons/formatter/jsondef"
 	"github.com/exchangedataset/streamcommons/jsonstructs"
 )
@@ -59,6 +61,18 @@ func (f *bitfinexFormatter) formatBook(channel string, line []byte) ([]Result, e
 			price := order[0].(float64)
 			count := int64(order[1].(float64))
 			size := order[2].(float64)
+
+			var side string
+			// Even if count is 0, the size is either -1 or 1 to indicate the side
+			if size < 0 {
+				size = -size
+				side = streamcommons.CommonFormatSell
+			} else if size == 0 {
+				side = streamcommons.CommonFormatUnknown
+			} else {
+				side = streamcommons.CommonFormatBuy
+			}
+
 			if count == 0 {
 				size = 0
 			}
@@ -67,6 +81,7 @@ func (f *bitfinexFormatter) formatBook(channel string, line []byte) ([]Result, e
 				Symbol: pair,
 				Price:  price,
 				Count:  count,
+				Side:   side,
 				Size:   size,
 			})
 			if serr != nil {
@@ -140,6 +155,18 @@ func (f *bitfinexFormatter) formatTrades(channel string, line []byte) (formatted
 		size := order[2].(float64)
 		price := order[3].(float64)
 
+		var side string
+		// We use absolute float for size
+		if size < 0 {
+			// Sell side
+			size = -size
+			side = streamcommons.CommonFormatSell
+		} else if size == 0 {
+			side = streamcommons.CommonFormatUnknown
+		} else {
+			side = streamcommons.CommonFormatBuy
+		}
+
 		// convert timestamp into nanosec
 		timestamp := fmt.Sprintf("%d", millisecTimestamp*1000000)
 
@@ -149,6 +176,7 @@ func (f *bitfinexFormatter) formatTrades(channel string, line []byte) (formatted
 			OrderID:   orderID,
 			Timestamp: timestamp,
 			Price:     price,
+			Side:      side,
 			Size:      size,
 		})
 		if err != nil {

@@ -58,15 +58,13 @@ func (f *bitmexFormatter) formatOrderBookL2(dataRaw json.RawMessage) (ret []Resu
 	ret = make([]Result, len(orders))
 	for i, order := range orders {
 		size := float64(order.Size)
-		if order.Side == "Sell" {
-			// if side is sell, negate size
-			size = -size
-		}
 		marshaled, serr := json.Marshal(jsondef.BitmexOrderBookL2{
 			Symbol: order.Symbol,
 			Price:  order.Price,
 			ID:     order.ID,
-			Size:   size,
+			// Our side string format are the same as Bitmex
+			Side: order.Side,
+			Size: size,
 		})
 		if serr != nil {
 			err = fmt.Errorf("formatOrderBookL2: BitmexOrderBookL2: %v", serr)
@@ -90,13 +88,11 @@ func (f *bitmexFormatter) formatTrade(dataRaw json.RawMessage) (ret []Result, er
 	ret = make([]Result, len(orders))
 	for i, elem := range orders {
 		size := float64(elem.Size)
-		if elem.Side == "Sell" {
-			size = -size
-		}
 		timestamp, serr := bitmexParseTimestamp(&elem.Timestamp)
 		marshaled, serr := json.Marshal(jsondef.BitmexTrade{
 			Symbol:          elem.Symbol,
 			Price:           elem.Price,
+			Side:            elem.Side,
 			Size:            size,
 			Timestamp:       *timestamp,
 			TrdMatchID:      elem.TradeMatchID,

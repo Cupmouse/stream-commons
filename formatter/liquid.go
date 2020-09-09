@@ -77,10 +77,11 @@ func (f *liquidFormatter) FormatMessage(channel string, line []byte) (formatted 
 			order.Symbol = symbol
 			order.Price = price
 			if side {
-				order.Size = -quantity
+				order.Side = streamcommons.CommonFormatSell
 			} else {
-				order.Size = quantity
+				order.Side = streamcommons.CommonFormatBuy
 			}
+			order.Size = quantity
 			om, serr := json.Marshal(order)
 			if serr != nil {
 				return nil, fmt.Errorf("FormatMessage: order marshal: %v", serr)
@@ -109,10 +110,11 @@ func (f *liquidFormatter) FormatMessage(channel string, line []byte) (formatted 
 		lec.Symbol = channel[len(streamcommons.LiquidChannelPrefixExecutionsCash):]
 		lec.Price = execution.Price
 		if execution.TakerSide == "sell" {
-			lec.Size = -execution.Quantity
+			lec.Side = streamcommons.CommonFormatSell
 		} else {
-			lec.Size = execution.Quantity
+			lec.Side = streamcommons.CommonFormatBuy
 		}
+		lec.Size = execution.Quantity
 		fm, serr := json.Marshal(lec)
 		if serr != nil {
 			return nil, fmt.Errorf("FormatMessage: formatted: %v", serr)

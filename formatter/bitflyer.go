@@ -7,6 +7,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/exchangedataset/streamcommons"
+
 	"github.com/exchangedataset/streamcommons/formatter/jsondef"
 	"github.com/exchangedataset/streamcommons/jsonstructs"
 )
@@ -48,8 +50,8 @@ func (f *bitflyerFormatter) formatBoard(channel string, messageRaw json.RawMessa
 		marshaled, serr := json.Marshal(jsondef.BitflyerBoard{
 			Symbol: pair,
 			Price:  ask.Price,
-			// size is negative if sell
-			Size: -ask.Size,
+			Side:   streamcommons.CommonFormatSell,
+			Size:   ask.Size,
 		})
 		if serr != nil {
 			return nil, fmt.Errorf("formatBoard: ask BitflyerBoard: %v", serr)
@@ -64,6 +66,7 @@ func (f *bitflyerFormatter) formatBoard(channel string, messageRaw json.RawMessa
 		marshaled, serr := json.Marshal(jsondef.BitflyerBoard{
 			Symbol: pair,
 			Price:  bid.Price,
+			Side:   streamcommons.CommonFormatBuy,
 			Size:   bid.Size,
 		})
 		if serr != nil {
@@ -89,21 +92,20 @@ func (f *bitflyerFormatter) formatExecutions(channel string, messageRaw json.Raw
 	}
 	ret := make([]Result, len(orders))
 	for i, element := range orders {
-		var size float64
-		// this is to prevent -0
-		if element.Size != 0 {
-			if element.Side == "ask" {
-				size = -element.Size
-			} else {
-				// for some reason, side could be empty, probably a bug of bitflyer api
-				// this also includes buy side
-				size = element.Size
-			}
+		var side string
+		if element.Side == "ask" || element.Side == "SELL" {
+			side = streamcommons.CommonFormatSell
+		} else if element.Side == "bid" || element.Side == "BUY" {
+			side = streamcommons.CommonFormatBuy
+		} else {
+			// for some reason, side could be empty, probably a bug of bitflyer api
+			side = streamcommons.CommonFormatUnknown
 		}
 		marshaled, serr := json.Marshal(jsondef.BitflyerExecutions{
 			Symbol: pair,
 			Price:  element.Price,
-			Size:   size,
+			Side:   side,
+			Size:   element.Size,
 		})
 		if serr != nil {
 			return nil, fmt.Errorf("formatExecutions BitflyerExecutions: %v", serr)

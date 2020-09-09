@@ -5,28 +5,30 @@ type BinanceDepth struct {
 	EventTime string  `json:"eventTime"`
 	Symbol    string  `json:"symbol"`
 	Price     float64 `json:"price"`
+	Side      string  `json:"side"`
 	Size      float64 `json:"size"`
 }
 
 // TypeDefBinanceDepth is auto-generated
-var TypeDefBinanceDepth = []byte("{\"eventTime\": \"timestamp\", \"symbol\": \"symbol\", \"price\": \"price\", \"size\": \"size\"}")
+var TypeDefBinanceDepth = []byte("{\"eventTime\": \"timestamp\", \"symbol\": \"symbol\", \"price\": \"price\", \"side\": \"side\", \"size\": \"size\"}")
 
 // BinanceRestDepth is auto-generated
 type BinanceRestDepth struct {
-	Symbol  string  `json:"symbol"`
-	OrderID int64   `json:"orderId"`
-	Price   float64 `json:"price"`
-	Size    float64 `json:"size"`
+	Symbol string  `json:"symbol"`
+	Price  float64 `json:"price"`
+	Side   string  `json:"side"`
+	Size   float64 `json:"size"`
 }
 
 // TypeDefBinanceRestDepth is auto-generated
-var TypeDefBinanceRestDepth = []byte("{\"symbol\": \"symbol\", \"orderId\": \"int\", \"price\": \"price\", \"size\": \"size\"}")
+var TypeDefBinanceRestDepth = []byte("{\"symbol\": \"symbol\", \"price\": \"price\", \"side\": \"side\", \"size\": \"size\"}")
 
 // BinanceTrade is auto-generated
 type BinanceTrade struct {
 	Symbol         string  `json:"symbol"`
 	Price          float64 `json:"price"`
 	Timestamp      string  `json:"timestamp"`
+	Side           string  `json:"side"`
 	Size           float64 `json:"size"`
 	TradeID        int64   `json:"tradeID"`
 	BuyerOrderID   int64   `json:"buyerOrderID"`
@@ -35,7 +37,7 @@ type BinanceTrade struct {
 }
 
 // TypeDefBinanceTrade is auto-generated
-var TypeDefBinanceTrade = []byte("{\"symbol\": \"symbol\", \"price\": \"price\", \"timestamp\": \"timestamp\", \"size\": \"size\", \"tradeID\": \"int\", \"buyerOrderID\": \"int\", \"sellterOrderID\": \"int\", \"eventTime\": \"timestamp\"}")
+var TypeDefBinanceTrade = []byte("{\"symbol\": \"symbol\", \"price\": \"price\", \"timestamp\": \"timestamp\", \"side\": \"side\", \"size\": \"size\", \"tradeID\": \"int\", \"buyerOrderID\": \"int\", \"sellterOrderID\": \"int\", \"eventTime\": \"timestamp\"}")
 
 // BinanceTicker is auto-generated
 type BinanceTicker struct {

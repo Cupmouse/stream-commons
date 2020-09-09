@@ -130,13 +130,12 @@ func (f *binanceFormatter) FormatMessage(channel string, line []byte) (formatted
 				err = fmt.Errorf("FormatMessage: depth ask price: %v", serr)
 				return
 			}
-			size, serr := strconv.ParseFloat(order[1], 64)
+			fo.Side = streamcommons.CommonFormatSell
+			fo.Size, serr = strconv.ParseFloat(order[1], 64)
 			if serr != nil {
 				err = fmt.Errorf("FormatMessage: depth ask size: %v", serr)
 				return
 			}
-			// Negative size for sell order
-			fo.Size = -size
 			mfo, serr := json.Marshal(fo)
 			if serr != nil {
 				err = fmt.Errorf("FormatMessage: depth ask BinanceDepth: %v", serr)
@@ -157,6 +156,7 @@ func (f *binanceFormatter) FormatMessage(channel string, line []byte) (formatted
 				err = fmt.Errorf("FormatMessage: depth bid price: %v", serr)
 				return
 			}
+			fo.Side = streamcommons.CommonFormatBuy
 			fo.Size, serr = strconv.ParseFloat(order[1], 64)
 			if serr != nil {
 				err = fmt.Errorf("FormatMessage: depth bid size: %v", serr)
@@ -192,13 +192,13 @@ func (f *binanceFormatter) FormatMessage(channel string, line []byte) (formatted
 				err = fmt.Errorf("FormatMessage: depthrest ask price: %v", serr)
 				return
 			}
+			fo.Side = streamcommons.CommonFormatSell
 			size, serr := strconv.ParseFloat(order[1], 64)
 			if serr != nil {
 				err = fmt.Errorf("FormatMessage: depthrest ask size: %v", serr)
 				return
 			}
-			// Negative size for sell order
-			fo.Size = -size
+			fo.Size = size
 			mfo, serr := json.Marshal(fo)
 			if serr != nil {
 				err = fmt.Errorf("FormatMessage: depthrest ask BinanceDepth: %v", serr)
@@ -218,6 +218,7 @@ func (f *binanceFormatter) FormatMessage(channel string, line []byte) (formatted
 				err = fmt.Errorf("FormatMessage: depthrest bid price: %v", serr)
 				return
 			}
+			fo.Side = streamcommons.CommonFormatBuy
 			fo.Size, serr = strconv.ParseFloat(order[1], 64)
 			if serr != nil {
 				err = fmt.Errorf("FormatMessage: depthrest bid size: %v", serr)
@@ -264,8 +265,9 @@ func (f *binanceFormatter) FormatMessage(channel string, line []byte) (formatted
 		}
 		if trade.IsBuyerMarketMaker {
 			// Buyer is the maker = seller is the taker
-			// Negative size for sell order
-			ft.Size = -ft.Size
+			ft.Side = streamcommons.CommonFormatSell
+		} else {
+			ft.Side = streamcommons.CommonFormatBuy
 		}
 		ft.SellterOrderID = trade.SellerOrderID
 		ft.BuyerOrderID = trade.BuyerOrderID

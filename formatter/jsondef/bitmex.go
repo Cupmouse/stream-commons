@@ -5,16 +5,18 @@ type BitmexOrderBookL2 struct {
 	Symbol string  `json:"symbol"`
 	Price  float64 `json:"price"`
 	ID     int64   `json:"id"`
+	Side   string  `json:"side"`
 	Size   float64 `json:"size"`
 }
 
 // TypeDefBitmexOrderBookL2 is auto-generated
-var TypeDefBitmexOrderBookL2 = []byte("{\"symbol\": \"symbol\", \"price\": \"price\", \"id\": \"int\", \"size\": \"size\"}")
+var TypeDefBitmexOrderBookL2 = []byte("{\"symbol\": \"symbol\", \"price\": \"price\", \"id\": \"int\", \"side\": \"side\", \"size\": \"size\"}")
 
 // BitmexTrade is auto-generated
 type BitmexTrade struct {
 	Symbol          string   `json:"symbol"`
 	Price           float64  `json:"price"`
+	Side            string   `json:"side"`
 	Size            float64  `json:"size"`
 	Timestamp       string   `json:"timestamp"`
 	TrdMatchID      string   `json:"trdMatchId"`
@@ -25,7 +27,7 @@ type BitmexTrade struct {
 }
 
 // TypeDefBitmexTrade is auto-generated
-var TypeDefBitmexTrade = []byte("{\"symbol\": \"symbol\", \"price\": \"price\", \"size\": \"size\", \"timestamp\": \"timestamp\", \"trdMatchId\": \"guid\", \"tickDirection\": \"string\", \"grossValue\": \"int\", \"homeNotional\": \"float\", \"foreignNotional\": \"float\"}")
+var TypeDefBitmexTrade = []byte("{\"symbol\": \"symbol\", \"price\": \"price\", \"side\": \"side\", \"size\": \"size\", \"timestamp\": \"timestamp\", \"trdMatchId\": \"guid\", \"tickDirection\": \"string\", \"grossValue\": \"int\", \"homeNotional\": \"float\", \"foreignNotional\": \"float\"}")
 
 // BitmexInstrument is auto-generated
 type BitmexInstrument struct {

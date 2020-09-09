@@ -29,6 +29,13 @@ const (
 	LiquidChannelPrefixExecutionsCash  = "executions_cash_"
 )
 
+// Common format
+const (
+	CommonFormatSell    = "Sell"
+	CommonFormatBuy     = "Buy"
+	CommonFormatUnknown = "Unknown"
+)
+
 // StateChannelSubscribed is the channel name for subscribed channel message in status line
 const StateChannelSubscribed = "!subscribed"
 
