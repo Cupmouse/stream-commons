@@ -8,8 +8,8 @@ var formatters = make(map[string]map[string]Formatter)
 
 // Formatter formats raw line into desired format.
 type Formatter interface {
-	FormatStart(urlStr string) ([]StartReturn, error)
-	FormatMessage(channel string, line []byte) ([][]byte, error)
+	FormatStart(urlStr string) ([]Result, error)
+	FormatMessage(channel string, line []byte) ([]Result, error)
 	IsSupported(channel string) bool
 }
 

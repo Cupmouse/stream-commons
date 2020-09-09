@@ -18,7 +18,7 @@ type binanceFormatter struct{}
 
 // FormatStart formats start line (URL) and returns the array of known subscribed channel in case the server won't
 // tell the client what channels are successfully subscribed.
-func (f *binanceFormatter) FormatStart(urlStr string) (formatted []StartReturn, err error) {
+func (f *binanceFormatter) FormatStart(urlStr string) (formatted []Result, err error) {
 	u, serr := url.Parse(string(urlStr))
 	if serr != nil {
 		return nil, fmt.Errorf("FormatStart: %v", serr)
@@ -26,7 +26,7 @@ func (f *binanceFormatter) FormatStart(urlStr string) (formatted []StartReturn, 
 	q := u.Query()
 	streams := q.Get("streams")
 	channels := strings.Split(streams, "/")
-	formatted = make([]StartReturn, len(channels))
+	formatted = make([]Result, len(channels))
 	for i, ch := range channels {
 		_, stream, serr := streamcommons.BinanceDecomposeChannel(ch)
 		if serr != nil {
@@ -35,22 +35,22 @@ func (f *binanceFormatter) FormatStart(urlStr string) (formatted []StartReturn, 
 		}
 		switch stream {
 		case streamcommons.BinanceStreamDepth:
-			formatted[i] = StartReturn{
+			formatted[i] = Result{
 				Channel: ch,
 				Message: jsondef.TypeDefBinanceDepth,
 			}
 		case streamcommons.BinanceStreamTrade:
-			formatted[i] = StartReturn{
+			formatted[i] = Result{
 				Channel: ch,
 				Message: jsondef.TypeDefBinanceTrade,
 			}
 		case streamcommons.BinanceStreamTicker:
-			formatted[i] = StartReturn{
+			formatted[i] = Result{
 				Channel: ch,
 				Message: jsondef.TypeDefBinanceTicker,
 			}
 		case streamcommons.BinanceStreamRESTDepth:
-			formatted[i] = StartReturn{
+			formatted[i] = Result{
 				Channel: ch,
 				Message: jsondef.TypeDefBinanceRestDepth,
 			}
@@ -63,7 +63,7 @@ func (f *binanceFormatter) FormatStart(urlStr string) (formatted []StartReturn, 
 }
 
 // FormatMessage formats messages from server.
-func (f *binanceFormatter) FormatMessage(channel string, line []byte) (formatted [][]byte, err error) {
+func (f *binanceFormatter) FormatMessage(channel string, line []byte) (formatted []Result, err error) {
 	symbol, stream, serr := streamcommons.BinanceDecomposeChannel(channel)
 	if serr != nil {
 		err = fmt.Errorf("FormatMessage: %v", serr)
@@ -77,16 +77,28 @@ func (f *binanceFormatter) FormatMessage(channel string, line []byte) (formatted
 	}
 	if subscribed.ID != 0 {
 		// Subscribe message
-		formatted = make([][]byte, 1)
+		formatted = make([]Result, 1)
 		switch stream {
 		case streamcommons.BinanceStreamDepth:
-			formatted[0] = jsondef.TypeDefBinanceDepth
+			formatted[0] = Result{
+				Channel: channel,
+				Message: jsondef.TypeDefBinanceDepth,
+			}
 		case streamcommons.BinanceStreamTrade:
-			formatted[0] = jsondef.TypeDefBinanceTrade
+			formatted[0] = Result{
+				Channel: channel,
+				Message: jsondef.TypeDefBinanceTrade,
+			}
 		case streamcommons.BinanceStreamRESTDepth:
-			formatted[0] = jsondef.TypeDefBinanceRestDepth
+			formatted[0] = Result{
+				Channel: channel,
+				Message: jsondef.TypeDefBinanceRestDepth,
+			}
 		case streamcommons.BinanceStreamTicker:
-			formatted[0] = jsondef.TypeDefBinanceTicker
+			formatted[0] = Result{
+				Channel: channel,
+				Message: jsondef.TypeDefBinanceTicker,
+			}
 		default:
 			err = fmt.Errorf("FormatMessage: channel not supported: %s", channel)
 		}
@@ -107,7 +119,7 @@ func (f *binanceFormatter) FormatMessage(channel string, line []byte) (formatted
 			return
 		}
 		eventTime := strconv.FormatInt(depth.EventTime*int64(time.Millisecond), 10)
-		formatted = make([][]byte, len(depth.Asks)+len(depth.Bids))
+		formatted = make([]Result, len(depth.Asks)+len(depth.Bids))
 		i := 0
 		for _, order := range depth.Asks {
 			fo := new(jsondef.BinanceDepth)
@@ -130,7 +142,10 @@ func (f *binanceFormatter) FormatMessage(channel string, line []byte) (formatted
 				err = fmt.Errorf("FormatMessage: depth ask BinanceDepth: %v", serr)
 				return
 			}
-			formatted[i] = mfo
+			formatted[i] = Result{
+				Channel: channel,
+				Message: mfo,
+			}
 			i++
 		}
 		for _, order := range depth.Bids {
@@ -152,7 +167,10 @@ func (f *binanceFormatter) FormatMessage(channel string, line []byte) (formatted
 				err = fmt.Errorf("FormatMessage: depth bid BinanceDepth: %v", serr)
 				return
 			}
-			formatted[i] = mfo
+			formatted[i] = Result{
+				Channel: channel,
+				Message: mfo,
+			}
 			i++
 		}
 		return
@@ -164,7 +182,7 @@ func (f *binanceFormatter) FormatMessage(channel string, line []byte) (formatted
 			err = fmt.Errorf("FormatMessage: depthrest BinanceDepthREST: %v", serr)
 			return
 		}
-		formatted = make([][]byte, len(depth.Asks)+len(depth.Bids))
+		formatted = make([]Result, len(depth.Asks)+len(depth.Bids))
 		i := 0
 		for _, order := range depth.Asks {
 			fo := new(jsondef.BinanceRestDepth)
@@ -186,7 +204,10 @@ func (f *binanceFormatter) FormatMessage(channel string, line []byte) (formatted
 				err = fmt.Errorf("FormatMessage: depthrest ask BinanceDepth: %v", serr)
 				return
 			}
-			formatted[i] = mfo
+			formatted[i] = Result{
+				Channel: channel,
+				Message: mfo,
+			}
 			i++
 		}
 		for _, order := range depth.Bids {
@@ -207,7 +228,10 @@ func (f *binanceFormatter) FormatMessage(channel string, line []byte) (formatted
 				err = fmt.Errorf("FormatMessage: depthrest bid BinanceDepth: %v", serr)
 				return
 			}
-			formatted[i] = mfo
+			formatted[i] = Result{
+				Channel: channel,
+				Message: mfo,
+			}
 			i++
 		}
 		return
@@ -246,13 +270,16 @@ func (f *binanceFormatter) FormatMessage(channel string, line []byte) (formatted
 		ft.SellterOrderID = trade.SellerOrderID
 		ft.BuyerOrderID = trade.BuyerOrderID
 		ft.TradeID = trade.TradeID
-		formatted = make([][]byte, 1)
+		formatted = make([]Result, 1)
 		mft, serr := json.Marshal(ft)
 		if serr != nil {
 			err = fmt.Errorf("FormatMessage: trade BinanceTrade: %v", serr)
 			return
 		}
-		formatted[0] = mft
+		formatted[0] = Result{
+			Channel: channel,
+			Message: mft,
+		}
 		return
 	case streamcommons.BinanceStreamTicker:
 		root := new(jsonstructs.BinanceReponseRoot)
@@ -365,13 +392,16 @@ func (f *binanceFormatter) FormatMessage(channel string, line []byte) (formatted
 		ft.FirstTradeID = ticker.FirstTradeID
 		ft.LastTradeID = ticker.LastTradeID
 		ft.TotalNumberOfTrades = ticker.TotalNumberOfTrades
-		formatted = make([][]byte, 1)
+		formatted = make([]Result, 1)
 		mft, serr := json.Marshal(ft)
 		if serr != nil {
 			err = fmt.Errorf("FormatMessage: ticker BinanceTicker: %v", serr)
 			return
 		}
-		formatted[0] = mft
+		formatted[0] = Result{
+			Channel: channel,
+			Message: mft,
+		}
 		return
 	default:
 		err = fmt.Errorf("FormatMessage: unsupported: %v", channel)

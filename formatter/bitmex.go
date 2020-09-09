@@ -6,6 +6,8 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/exchangedataset/streamcommons"
+
 	"github.com/exchangedataset/streamcommons/formatter/jsondef"
 	"github.com/exchangedataset/streamcommons/jsonstructs"
 )
@@ -41,11 +43,11 @@ type bitmexFormatter struct {
 }
 
 // FormatStart returns empty slice.
-func (f *bitmexFormatter) FormatStart(urlStr string) ([]StartReturn, error) {
-	return make([]StartReturn, 0), nil
+func (f *bitmexFormatter) FormatStart(urlStr string) ([]Result, error) {
+	return make([]Result, 0), nil
 }
 
-func (f *bitmexFormatter) formatOrderBookL2(dataRaw json.RawMessage) (ret [][]byte, err error) {
+func (f *bitmexFormatter) formatOrderBookL2(dataRaw json.RawMessage) (ret []Result, err error) {
 	orders := make([]jsonstructs.BitmexOrderBookL2DataElement, 0, 10)
 	serr := json.Unmarshal(dataRaw, &orders)
 	if serr != nil {
@@ -53,7 +55,7 @@ func (f *bitmexFormatter) formatOrderBookL2(dataRaw json.RawMessage) (ret [][]by
 		return
 	}
 
-	ret = make([][]byte, len(orders))
+	ret = make([]Result, len(orders))
 	for i, order := range orders {
 		size := float64(order.Size)
 		if order.Side == "Sell" {
@@ -70,19 +72,22 @@ func (f *bitmexFormatter) formatOrderBookL2(dataRaw json.RawMessage) (ret [][]by
 			err = fmt.Errorf("formatOrderBookL2: BitmexOrderBookL2: %v", serr)
 			return
 		}
-		ret[i] = marshaled
+		ret[i] = Result{
+			Channel: streamcommons.BitmexChannelOrderBookL2 + "_" + order.Symbol,
+			Message: marshaled,
+		}
 	}
 	return
 }
 
-func (f *bitmexFormatter) formatTrade(dataRaw json.RawMessage) (ret [][]byte, err error) {
+func (f *bitmexFormatter) formatTrade(dataRaw json.RawMessage) (ret []Result, err error) {
 	orders := make([]jsonstructs.BitmexTradeDataElement, 0, 10)
 	serr := json.Unmarshal(dataRaw, &orders)
 	if serr != nil {
 		err = fmt.Errorf("formatTrade: BitmexTradeDataElement: %v", serr)
 		return
 	}
-	ret = make([][]byte, len(orders))
+	ret = make([]Result, len(orders))
 	for i, elem := range orders {
 		size := float64(elem.Size)
 		if elem.Side == "Sell" {
@@ -104,12 +109,15 @@ func (f *bitmexFormatter) formatTrade(dataRaw json.RawMessage) (ret [][]byte, er
 			err = fmt.Errorf("formatTrade: BitmexTrade: %v", serr)
 			return
 		}
-		ret[i] = marshaled
+		ret[i] = Result{
+			Channel: streamcommons.BitmexChannelTrade + "_" + elem.Symbol,
+			Message: marshaled,
+		}
 	}
 	return
 }
 
-func (f *bitmexFormatter) formatInstrument(dataRaw json.RawMessage) (ret [][]byte, err error) {
+func (f *bitmexFormatter) formatInstrument(dataRaw json.RawMessage) (ret []Result, err error) {
 	instruments := make([]jsonstructs.BitmexInstrumentDataElem, 0, 10)
 	serr := json.Unmarshal(dataRaw, &instruments)
 	if serr != nil {
@@ -117,7 +125,7 @@ func (f *bitmexFormatter) formatInstrument(dataRaw json.RawMessage) (ret [][]byt
 		return
 	}
 
-	ret = make([][]byte, len(instruments))
+	ret = make([]Result, len(instruments))
 	for i, elem := range instruments {
 		relistInterval, serr := bitmexParseDuration(elem.RelistInterval)
 		if serr != nil {
@@ -309,19 +317,22 @@ func (f *bitmexFormatter) formatInstrument(dataRaw json.RawMessage) (ret [][]byt
 			return
 		}
 
-		ret[i] = marshaled
+		ret[i] = Result{
+			Channel: streamcommons.BitmexChannelInstrument + "_" + elem.Symbol,
+			Message: marshaled,
+		}
 	}
 	return
 }
 
-func (f *bitmexFormatter) formatLiquidation(dataRaw json.RawMessage) (ret [][]byte, err error) {
+func (f *bitmexFormatter) formatLiquidation(dataRaw json.RawMessage) (ret []Result, err error) {
 	liquidations := make([]jsonstructs.BitmexLiquidationDataElement, 0, 10)
 	serr := json.Unmarshal(dataRaw, &liquidations)
 	if serr != nil {
 		err = fmt.Errorf("formatLiquidation: dataRaw: %v", serr)
 		return
 	}
-	ret = make([][]byte, len(liquidations))
+	ret = make([]Result, len(liquidations))
 	for i, elem := range liquidations {
 		// Note: this structure is completely the same as what bitmex sends us...
 		marshaled, serr := json.Marshal(jsondef.BitmexLiquidation{
@@ -335,19 +346,22 @@ func (f *bitmexFormatter) formatLiquidation(dataRaw json.RawMessage) (ret [][]by
 			err = fmt.Errorf("formatLiquidation: BitmexLiquidation: %v", serr)
 			return
 		}
-		ret[i] = marshaled
+		ret[i] = Result{
+			Channel: streamcommons.BitmexChannelLiquidation + "_" + elem.Symbol,
+			Message: marshaled,
+		}
 	}
 	return
 }
 
-func (f *bitmexFormatter) formatSettlement(dataRaw json.RawMessage) (ret [][]byte, err error) {
+func (f *bitmexFormatter) formatSettlement(dataRaw json.RawMessage) (ret []Result, err error) {
 	settlements := make([]jsonstructs.BitmexSettlementDataElement, 0, 10)
 	serr := json.Unmarshal(dataRaw, &settlements)
 	if serr != nil {
 		err = fmt.Errorf("formatSettlement: dataRaw: %v", serr)
 		return
 	}
-	ret = make([][]byte, len(settlements))
+	ret = make([]Result, len(settlements))
 	for i, elem := range settlements {
 		timestamp, serr := bitmexParseTimestamp(&elem.Timestamp)
 		marshaled, serr := json.Marshal(jsondef.BitmexSettlement{
@@ -365,19 +379,22 @@ func (f *bitmexFormatter) formatSettlement(dataRaw json.RawMessage) (ret [][]byt
 			err = fmt.Errorf("formatSettlement: BitmexSettlement: %v", serr)
 			return
 		}
-		ret[i] = marshaled
+		ret[i] = Result{
+			Channel: streamcommons.BitmexChannelSettlement + "_" + elem.Symbol,
+			Message: marshaled,
+		}
 	}
 	return
 }
 
-func (f *bitmexFormatter) formatInsurance(dataRaw json.RawMessage) (ret [][]byte, err error) {
+func (f *bitmexFormatter) formatInsurance(dataRaw json.RawMessage) (ret []Result, err error) {
 	insurances := make([]jsonstructs.BitmexInsuranceDataElement, 0, 10)
 	serr := json.Unmarshal(dataRaw, &insurances)
 	if serr != nil {
 		err = fmt.Errorf("formatInsurance: BitmexInsuranceDataElement: %v", serr)
 		return
 	}
-	ret = make([][]byte, len(insurances))
+	ret = make([]Result, len(insurances))
 	for i, elem := range insurances {
 		timestamp, serr := bitmexParseTimestamp(&elem.Timestamp)
 		marshaled, serr := json.Marshal(jsondef.BitmexInsurance{
@@ -389,19 +406,22 @@ func (f *bitmexFormatter) formatInsurance(dataRaw json.RawMessage) (ret [][]byte
 			err = fmt.Errorf("formatInsurance: BitmexInsurance: %v", serr)
 			return
 		}
-		ret[i] = marshaled
+		ret[i] = Result{
+			Channel: streamcommons.BitmexChannelInsurance + "_" + elem.Currency,
+			Message: marshaled,
+		}
 	}
 	return
 }
 
-func (f *bitmexFormatter) formatFunding(dataRaw json.RawMessage) (ret [][]byte, err error) {
+func (f *bitmexFormatter) formatFunding(dataRaw json.RawMessage) (ret []Result, err error) {
 	fundings := make([]jsonstructs.BitmexFundingDataElement, 0, 10)
 	serr := json.Unmarshal(dataRaw, &fundings)
 	if serr != nil {
 		err = fmt.Errorf("formatFunding: BitmexFundingDataElement: %v", serr)
 		return
 	}
-	ret = make([][]byte, len(fundings))
+	ret = make([]Result, len(fundings))
 	for i, elem := range fundings {
 		timestamp, serr := bitmexParseTimestamp(&elem.Timestamp)
 		if serr != nil {
@@ -422,13 +442,16 @@ func (f *bitmexFormatter) formatFunding(dataRaw json.RawMessage) (ret [][]byte, 
 			err = fmt.Errorf("formatFunding: BitmexFunding: %v", serr)
 			return
 		}
-		ret[i] = marshaled
+		ret[i] = Result{
+			Channel: streamcommons.BitmexChannelFunding + "_" + elem.Symbol,
+			Message: marshaled,
+		}
 	}
 	return
 }
 
 // FormatMessage formats incoming message given and returns formatted strings
-func (f *bitmexFormatter) FormatMessage(channel string, line []byte) (ret [][]byte, err error) {
+func (f *bitmexFormatter) FormatMessage(channel string, line []byte) (ret []Result, err error) {
 	subscribed := jsonstructs.BitmexSubscribe{}
 	serr := json.Unmarshal(line, &subscribed)
 	if serr != nil {
@@ -438,21 +461,57 @@ func (f *bitmexFormatter) FormatMessage(channel string, line []byte) (ret [][]by
 	if subscribed.Success {
 		// this is a response to subscription
 		// return header row
-		if channel == "orderBookL2" {
-			ret = [][]byte{jsondef.TypeDefBitmexOrderBookL2}
-		} else if channel == "trade" {
-			ret = [][]byte{jsondef.TypeDefBitmexTrade}
-		} else if channel == "instrument" {
-			ret = [][]byte{jsondef.TypeDefBitmexInstrument}
-		} else if channel == "liquidation" {
-			ret = [][]byte{jsondef.TypeDefBitmexLiquidation}
-		} else if channel == "settlement" {
-			ret = [][]byte{jsondef.TypeDefBitmexSettlement}
-		} else if channel == "insurance" {
-			ret = [][]byte{jsondef.TypeDefBitmexInsurance}
-		} else if channel == "funding" {
-			ret = [][]byte{jsondef.TypeDefBitmexFunding}
-		} else {
+		switch channel {
+		case streamcommons.BitmexChannelOrderBookL2:
+			ret = []Result{
+				Result{
+					Channel: channel,
+					Message: jsondef.TypeDefBitmexOrderBookL2,
+				},
+			}
+		case streamcommons.BitmexChannelTrade:
+			ret = []Result{
+				Result{
+					Channel: channel,
+					Message: jsondef.TypeDefBitmexTrade,
+				},
+			}
+		case streamcommons.BitmexChannelInstrument:
+			ret = []Result{
+				Result{
+					Channel: channel,
+					Message: jsondef.TypeDefBitmexInstrument,
+				},
+			}
+		case streamcommons.BitmexChannelLiquidation:
+			ret = []Result{
+				Result{
+					Channel: channel,
+					Message: jsondef.TypeDefBitmexLiquidation,
+				},
+			}
+		case streamcommons.BitmexChannelSettlement:
+			ret = []Result{
+				Result{
+					Channel: channel,
+					Message: jsondef.TypeDefBitmexSettlement,
+				},
+			}
+		case streamcommons.BitmexChannelInsurance:
+			ret = []Result{
+				Result{
+					Channel: channel,
+					Message: jsondef.TypeDefBitmexInsurance,
+				},
+			}
+		case streamcommons.BitmexChannelFunding:
+			ret = []Result{
+				Result{
+					Channel: channel,
+					Message: jsondef.TypeDefBitmexFunding,
+				},
+			}
+		default:
 			err = fmt.Errorf("FormatMessage: csvlike unsupported: %s", channel)
 		}
 		return
@@ -465,23 +524,24 @@ func (f *bitmexFormatter) FormatMessage(channel string, line []byte) (ret [][]by
 		return
 	}
 
-	if channel == "orderBookL2" {
+	switch channel {
+	case streamcommons.BitmexChannelOrderBookL2:
 		return f.formatOrderBookL2(root.Data)
-	} else if channel == "trade" {
+	case streamcommons.BitmexChannelTrade:
 		return f.formatTrade(root.Data)
-	} else if channel == "instrument" {
+	case streamcommons.BitmexChannelInstrument:
 		return f.formatInstrument(root.Data)
-	} else if channel == "liquidation" {
+	case streamcommons.BitmexChannelLiquidation:
 		return f.formatLiquidation(root.Data)
-	} else if channel == "settlement" {
+	case streamcommons.BitmexChannelSettlement:
 		return f.formatSettlement(root.Data)
-	} else if channel == "insurance" {
+	case streamcommons.BitmexChannelInsurance:
 		return f.formatInsurance(root.Data)
-	} else if channel == "funding" {
+	case streamcommons.BitmexChannelFunding:
 		return f.formatFunding(root.Data)
+	default:
+		err = fmt.Errorf("FormatMessage: csvlike unsupported: %s", channel)
 	}
-
-	err = fmt.Errorf("FormatMessage: csvlike unsupported: %s", channel)
 	return
 }
 

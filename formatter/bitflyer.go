@@ -24,11 +24,11 @@ type bitflyerFormatter struct {
 }
 
 // FormatStart returns empty slice.
-func (f *bitflyerFormatter) FormatStart(urlStr string) ([]StartReturn, error) {
-	return make([]StartReturn, 0), nil
+func (f *bitflyerFormatter) FormatStart(urlStr string) ([]Result, error) {
+	return make([]Result, 0), nil
 }
 
-func (f *bitflyerFormatter) formatBoard(channel string, messageRaw json.RawMessage) ([][]byte, error) {
+func (f *bitflyerFormatter) formatBoard(channel string, messageRaw json.RawMessage) ([]Result, error) {
 	var pair string
 	if strings.HasPrefix(channel, "lightning_board_snapshot_") {
 		pair = channel[len("lightning_board_snapshot_"):]
@@ -41,7 +41,7 @@ func (f *bitflyerFormatter) formatBoard(channel string, messageRaw json.RawMessa
 	if err != nil {
 		return nil, fmt.Errorf("formatBoard: messageRaw: %v", err)
 	}
-	ret := make([][]byte, len(message.Bids)+len(message.Asks))
+	ret := make([]Result, len(message.Bids)+len(message.Asks))
 	i := 0
 	for _, ask := range message.Asks {
 		// size == 0 if due to be removed
@@ -54,7 +54,10 @@ func (f *bitflyerFormatter) formatBoard(channel string, messageRaw json.RawMessa
 		if serr != nil {
 			return nil, fmt.Errorf("formatBoard: ask BitflyerBoard: %v", serr)
 		}
-		ret[i] = marshaled
+		ret[i] = Result{
+			Channel: channel,
+			Message: marshaled,
+		}
 		i++
 	}
 	for _, bid := range message.Bids {
@@ -66,13 +69,16 @@ func (f *bitflyerFormatter) formatBoard(channel string, messageRaw json.RawMessa
 		if serr != nil {
 			return nil, fmt.Errorf("formatBoard: bid BitflyerBoard: %v", serr)
 		}
-		ret[i] = marshaled
+		ret[i] = Result{
+			Channel: channel,
+			Message: marshaled,
+		}
 		i++
 	}
 	return ret, nil
 }
 
-func (f *bitflyerFormatter) formatExecutions(channel string, messageRaw json.RawMessage) ([][]byte, error) {
+func (f *bitflyerFormatter) formatExecutions(channel string, messageRaw json.RawMessage) ([]Result, error) {
 	// pair, price, size
 	pair := channel[len("lightning_executions_"):]
 
@@ -81,7 +87,7 @@ func (f *bitflyerFormatter) formatExecutions(channel string, messageRaw json.Raw
 	if err != nil {
 		return nil, fmt.Errorf("formatExecutions: messageRaw: %v", err)
 	}
-	ret := make([][]byte, len(orders))
+	ret := make([]Result, len(orders))
 	for i, element := range orders {
 		var size float64
 		// this is to prevent -0
@@ -102,12 +108,15 @@ func (f *bitflyerFormatter) formatExecutions(channel string, messageRaw json.Raw
 		if serr != nil {
 			return nil, fmt.Errorf("formatExecutions BitflyerExecutions: %v", serr)
 		}
-		ret[i] = marshaled
+		ret[i] = Result{
+			Channel: channel,
+			Message: marshaled,
+		}
 	}
 	return ret, nil
 }
 
-func (f *bitflyerFormatter) formatTicker(channel string, messageRaw json.RawMessage) ([][]byte, error) {
+func (f *bitflyerFormatter) formatTicker(channel string, messageRaw json.RawMessage) ([]Result, error) {
 	ticker := new(jsonstructs.BitflyerTickerParamsMessage)
 	err := json.Unmarshal(messageRaw, ticker)
 	if err != nil {
@@ -135,14 +144,19 @@ func (f *bitflyerFormatter) formatTicker(channel string, messageRaw json.RawMess
 	if serr != nil {
 		return nil, fmt.Errorf("formatTicker: BitflyerTicker: %v", serr)
 	}
-	return [][]byte{marshaled}, nil
+	return []Result{
+		Result{
+			Channel: channel,
+			Message: marshaled,
+		},
+	}, nil
 }
 
 // FormatMessage formats message from bitflyer channel both given and returns formatted message
 // keep in mind that multiple string will be returned
 // error will be returned if channel is not supported to be formatted or
 // message given is in invalid format
-func (f *bitflyerFormatter) FormatMessage(channel string, line []byte) ([][]byte, error) {
+func (f *bitflyerFormatter) FormatMessage(channel string, line []byte) ([]Result, error) {
 	// check if this message is a response to subscribe
 	subscribe := jsonstructs.BitflyerSubscribed{}
 	err := json.Unmarshal(line, &subscribe)
@@ -153,11 +167,26 @@ func (f *bitflyerFormatter) FormatMessage(channel string, line []byte) ([][]byte
 		// an response for subscribe request
 		if strings.HasPrefix(channel, "lightning_board_") {
 			// lightning_board_snapshot will also return the same header
-			return [][]byte{jsondef.TypeDefBitflyerBoard}, nil
+			return []Result{
+				Result{
+					Channel: channel,
+					Message: jsondef.TypeDefBitflyerBoard,
+				},
+			}, nil
 		} else if strings.HasPrefix(channel, "lightning_executions_") {
-			return [][]byte{jsondef.TypeDefBitflyerExecutions}, nil
+			return []Result{
+				Result{
+					Channel: channel,
+					Message: jsondef.TypeDefBitflyerExecutions,
+				},
+			}, nil
 		} else if strings.HasPrefix(channel, "lightning_ticker_") {
-			return [][]byte{jsondef.TypeDefBitflyerTicker}, nil
+			return []Result{
+				Result{
+					Channel: channel,
+					Message: jsondef.TypeDefBitflyerTicker,
+				},
+			}, nil
 		} else {
 			return nil, fmt.Errorf("csvlike unsupported: %s", channel)
 		}

@@ -14,11 +14,11 @@ import (
 type bitfinexFormatter struct{}
 
 // FormatStart returns empty slice.
-func (f *bitfinexFormatter) FormatStart(urlStr string) ([]StartReturn, error) {
-	return make([]StartReturn, 0), nil
+func (f *bitfinexFormatter) FormatStart(urlStr string) ([]Result, error) {
+	return make([]Result, 0), nil
 }
 
-func (f *bitfinexFormatter) formatBook(channel string, line []byte) ([][]byte, error) {
+func (f *bitfinexFormatter) formatBook(channel string, line []byte) ([]Result, error) {
 	pair := channel[len("book_"):]
 
 	unmarshaled := jsonstructs.BitfinexBook{}
@@ -51,7 +51,7 @@ func (f *bitfinexFormatter) formatBook(channel string, line []byte) ([][]byte, e
 			return nil, fmt.Errorf("formatBook: invalid order type: %s", reflect.TypeOf(ordersInterf[0]))
 		}
 
-		ret := make([][]byte, len(orders))
+		ret := make([]Result, len(orders))
 		// TODO adding funding pair support
 		// normal trade pair
 		for i, order := range orders {
@@ -72,7 +72,10 @@ func (f *bitfinexFormatter) formatBook(channel string, line []byte) ([][]byte, e
 			if serr != nil {
 				return nil, fmt.Errorf("formatBook: BitfinexBook: %v", serr)
 			}
-			ret[i] = marshaled
+			ret[i] = Result{
+				Channel: channel,
+				Message: marshaled,
+			}
 		}
 		return ret, nil
 	default:
@@ -80,7 +83,7 @@ func (f *bitfinexFormatter) formatBook(channel string, line []byte) ([][]byte, e
 	}
 }
 
-func (f *bitfinexFormatter) formatTrades(channel string, line []byte) (formatted [][]byte, err error) {
+func (f *bitfinexFormatter) formatTrades(channel string, line []byte) (formatted []Result, err error) {
 	pair := channel[len("trades_"):]
 
 	unmarshal := jsonstructs.BitfinexTrades{}
@@ -129,7 +132,7 @@ func (f *bitfinexFormatter) formatTrades(channel string, line []byte) (formatted
 		return
 	}
 
-	formatted = make([][]byte, len(orders))
+	formatted = make([]Result, len(orders))
 	for i, order := range orders {
 		// orderID, millisectimestamp, amount, +-price
 		orderID := int64(order[0].(float64))
@@ -151,40 +154,49 @@ func (f *bitfinexFormatter) formatTrades(channel string, line []byte) (formatted
 		if err != nil {
 			return
 		}
-		formatted[i] = marshaled
+		formatted[i] = Result{
+			Channel: channel,
+			Message: marshaled,
+		}
 	}
 
 	return
 }
 
 // FormatMessage formats line from channel given and returns an array of them
-func (f *bitfinexFormatter) FormatMessage(channel string, line []byte) (formatted [][]byte, err error) {
+func (f *bitfinexFormatter) FormatMessage(channel string, line []byte) (formatted []Result, err error) {
 	subscribe := jsonstructs.BitfinexSubscribed{}
 	err = json.Unmarshal(line, &subscribe)
 	if err == nil && subscribe.Event == "subscribed" {
 		// an response for subscribe request
 		if strings.HasPrefix(channel, "book_") {
-			formatted = [][]byte{jsondef.TypeDefBitfinexBook}
-			return
+			formatted = []Result{
+				Result{
+					Channel: channel,
+					Message: jsondef.TypeDefBitfinexBook,
+				},
+			}
 		} else if strings.HasPrefix(channel, "trades_") {
-			formatted = [][]byte{jsondef.TypeDefBitfinexTrades}
-			return
+			formatted = []Result{
+				Result{
+					Channel: channel,
+					Message: jsondef.TypeDefBitfinexTrades,
+				},
+			}
 		} else {
 			err = fmt.Errorf("FormatMessage: json unsupported channel: %s", channel)
-			return
 		}
-	} else {
-		if strings.HasPrefix(channel, "book_") {
-			formatted, err = f.formatBook(channel, line)
-			return
-		} else if strings.HasPrefix(channel, "trades_") {
-			formatted, err = f.formatTrades(channel, line)
-			return
-		} else {
-			err = fmt.Errorf("FormatMessage: json unsupported channel: %s", channel)
-			return
-		}
+		return
 	}
+
+	if strings.HasPrefix(channel, "book_") {
+		formatted, err = f.formatBook(channel, line)
+	} else if strings.HasPrefix(channel, "trades_") {
+		formatted, err = f.formatTrades(channel, line)
+	} else {
+		err = fmt.Errorf("FormatMessage: json unsupported channel: %s", channel)
+	}
+	return
 }
 
 // IsSupported returns true if specified channel is supported to be formatted using this formatter

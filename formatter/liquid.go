@@ -17,12 +17,12 @@ type liquidFormatter struct {
 }
 
 // FormatStart returns empty slice.
-func (f *liquidFormatter) FormatStart(urlStr string) (formatted []StartReturn, err error) {
+func (f *liquidFormatter) FormatStart(urlStr string) (formatted []Result, err error) {
 	return nil, nil
 }
 
 // FormatMessage formats raw messages from Liquid server to json format.
-func (f *liquidFormatter) FormatMessage(channel string, line []byte) (formatted [][]byte, err error) {
+func (f *liquidFormatter) FormatMessage(channel string, line []byte) (formatted []Result, err error) {
 	r := new(jsonstructs.LiquidMessageRoot)
 	serr := json.Unmarshal(line, r)
 	if serr != nil {
@@ -31,9 +31,15 @@ func (f *liquidFormatter) FormatMessage(channel string, line []byte) (formatted 
 	}
 	if r.Event == jsonstructs.LiquidEventSubscriptionSucceeded {
 		if strings.HasPrefix(channel, streamcommons.LiquidChannelPrefixLaddersCash) {
-			return [][]byte{jsondef.TypeDefLiquidPriceLaddersCash}, nil
+			return []Result{Result{
+				Channel: channel,
+				Message: jsondef.TypeDefLiquidPriceLaddersCash,
+			}}, nil
 		} else if strings.HasPrefix(channel, streamcommons.LiquidChannelPrefixExecutionsCash) {
-			return [][]byte{jsondef.TypeDefLiquidExecutionsCash}, nil
+			return []Result{Result{
+				Channel: channel,
+				Message: jsondef.TypeDefLiquidExecutionsCash,
+			}}, nil
 		} else {
 			return nil, fmt.Errorf("FormatMessage: channel not supported: %v", channel)
 		}
@@ -57,7 +63,7 @@ func (f *liquidFormatter) FormatMessage(channel string, line []byte) (formatted 
 		if serr != nil {
 			return nil, fmt.Errorf("FormatMessage: price ladder orderbook: %v", serr)
 		}
-		formatted = make([][]byte, len(orderbook))
+		formatted = make([]Result, len(orderbook))
 		for i, memOrder := range orderbook {
 			price, serr := strconv.ParseFloat(memOrder[0], 64)
 			if serr != nil {
@@ -79,7 +85,10 @@ func (f *liquidFormatter) FormatMessage(channel string, line []byte) (formatted 
 			if serr != nil {
 				return nil, fmt.Errorf("FormatMessage: order marshal: %v", serr)
 			}
-			formatted[i] = om
+			formatted[i] = Result{
+				Channel: channel,
+				Message: om,
+			}
 		}
 		return formatted, nil
 	} else if strings.HasPrefix(channel, streamcommons.LiquidChannelPrefixExecutionsCash) {
@@ -108,7 +117,12 @@ func (f *liquidFormatter) FormatMessage(channel string, line []byte) (formatted 
 		if serr != nil {
 			return nil, fmt.Errorf("FormatMessage: formatted: %v", serr)
 		}
-		formatted = [][]byte{fm}
+		formatted = []Result{
+			Result{
+				Channel: channel,
+				Message: fm,
+			},
+		}
 		return formatted, nil
 	}
 	return nil, fmt.Errorf("FormatMessage: line not supported")

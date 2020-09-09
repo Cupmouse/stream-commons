@@ -1,5 +1,16 @@
 package streamcommons
 
+// Bitmex related
+const (
+	BitmexChannelOrderBookL2 = "orderBookL2"
+	BitmexChannelTrade       = "trade"
+	BitmexChannelInstrument  = "instrument"
+	BitmexChannelLiquidation = "liquidation"
+	BitmexChannelSettlement  = "settlement"
+	BitmexChannelInsurance   = "insurance"
+	BitmexChannelFunding     = "funding"
+)
+
 // Binance related
 const (
 	// BinanceStreamRESTDepth is the prefix for binance indicating a REST depth channel.

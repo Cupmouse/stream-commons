@@ -1,7 +1,7 @@
 package formatter
 
-// StartReturn is the struct Formatter returns.
-type StartReturn struct {
+// Result is the struct Formatter returns.
+type Result struct {
 	Channel string
 	Message []byte
 }
