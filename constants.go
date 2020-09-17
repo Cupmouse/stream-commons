@@ -1,5 +1,14 @@
 package streamcommons
 
+// Name of exchanges
+const (
+	ExchangeBitflyer = "bitflyer"
+	ExchangeBitfinex = "bitfinex"
+	ExchangeBitmex   = "bitmex"
+	ExchangeBinance  = "binance"
+	ExchangeLiquid   = "liquid"
+)
+
 // Bitmex related
 const (
 	BitmexChannelOrderBookL2 = "orderBookL2"

@@ -232,3 +232,7 @@ func (f *bitfinexFormatter) IsSupported(channel string) bool {
 	return strings.HasPrefix(channel, "book_") ||
 		strings.HasPrefix(channel, "trades_")
 }
+
+func newBitfinexFormatter() *bitfinexFormatter {
+	return new(bitfinexFormatter)
+}

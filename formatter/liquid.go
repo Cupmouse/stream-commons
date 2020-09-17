@@ -134,3 +134,7 @@ func (f *liquidFormatter) IsSupported(channel string) bool {
 	return (strings.HasPrefix(channel, streamcommons.LiquidChannelPrefixLaddersCash) && (strings.HasSuffix(channel, "buy")) || strings.HasSuffix(channel, "sell")) ||
 		strings.HasPrefix(channel, streamcommons.LiquidChannelPrefixExecutionsCash)
 }
+
+func newLiquidFormatter() *liquidFormatter {
+	return new(liquidFormatter)
+}

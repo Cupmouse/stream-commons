@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/exchangedataset/streamcommons"
@@ -40,6 +41,8 @@ func bitmexParseDuration(duration *string) (*string, error) {
 
 // bitmexFormatter formats message from bitmex
 type bitmexFormatter struct {
+	// Target channels are used to support symbol-wise filtering and typedef formatting a for start line.
+	targets map[string]bool
 }
 
 // FormatStart returns empty slice.
@@ -455,60 +458,38 @@ func (f *bitmexFormatter) FormatMessage(channel string, line []byte) (ret []Resu
 		return
 	}
 	if subscribed.Success {
-		// this is a response to subscription
-		// return header row
+		// This is a response to subscription
+		// Return header row
+		var typedef []byte
 		switch channel {
 		case streamcommons.BitmexChannelOrderBookL2:
-			ret = []Result{
-				Result{
-					Channel: channel,
-					Message: jsondef.TypeDefBitmexOrderBookL2,
-				},
-			}
+			typedef = jsondef.TypeDefBitmexOrderBookL2
 		case streamcommons.BitmexChannelTrade:
-			ret = []Result{
-				Result{
-					Channel: channel,
-					Message: jsondef.TypeDefBitmexTrade,
-				},
-			}
+			typedef = jsondef.TypeDefBitmexTrade
 		case streamcommons.BitmexChannelInstrument:
-			ret = []Result{
-				Result{
-					Channel: channel,
-					Message: jsondef.TypeDefBitmexInstrument,
-				},
-			}
+			typedef = jsondef.TypeDefBitmexInstrument
 		case streamcommons.BitmexChannelLiquidation:
-			ret = []Result{
-				Result{
-					Channel: channel,
-					Message: jsondef.TypeDefBitmexLiquidation,
-				},
-			}
+			typedef = jsondef.TypeDefBitmexLiquidation
 		case streamcommons.BitmexChannelSettlement:
-			ret = []Result{
-				Result{
-					Channel: channel,
-					Message: jsondef.TypeDefBitmexSettlement,
-				},
-			}
+			typedef = jsondef.TypeDefBitmexSettlement
 		case streamcommons.BitmexChannelInsurance:
-			ret = []Result{
-				Result{
-					Channel: channel,
-					Message: jsondef.TypeDefBitmexInsurance,
-				},
-			}
+			typedef = jsondef.TypeDefBitmexInsurance
 		case streamcommons.BitmexChannelFunding:
-			ret = []Result{
-				Result{
-					Channel: channel,
-					Message: jsondef.TypeDefBitmexFunding,
-				},
-			}
+			typedef = jsondef.TypeDefBitmexFunding
 		default:
-			err = fmt.Errorf("FormatMessage: csvlike unsupported: %s", channel)
+			err = fmt.Errorf("FormatMessage: json not supported: %s", channel)
+			return
+		}
+		ret = make([]Result, 0, len(f.targets))
+		for target := range f.targets {
+			// Is this target a symbol-wise of raw channel?
+			if strings.HasPrefix(target, channel) {
+				// Duplicate typedef to symbol-wise channel
+				ret = append(ret, Result{
+					Channel: target,
+					Message: typedef,
+				})
+			}
 		}
 		return
 	}
@@ -520,29 +501,44 @@ func (f *bitmexFormatter) FormatMessage(channel string, line []byte) (ret []Resu
 		return
 	}
 
+	var sret []Result
 	switch channel {
 	case streamcommons.BitmexChannelOrderBookL2:
-		return f.formatOrderBookL2(root.Data)
+		sret, err = f.formatOrderBookL2(root.Data)
 	case streamcommons.BitmexChannelTrade:
-		return f.formatTrade(root.Data)
+		sret, err = f.formatTrade(root.Data)
 	case streamcommons.BitmexChannelInstrument:
-		return f.formatInstrument(root.Data)
+		sret, err = f.formatInstrument(root.Data)
 	case streamcommons.BitmexChannelLiquidation:
-		return f.formatLiquidation(root.Data)
+		sret, err = f.formatLiquidation(root.Data)
 	case streamcommons.BitmexChannelSettlement:
-		return f.formatSettlement(root.Data)
+		sret, err = f.formatSettlement(root.Data)
 	case streamcommons.BitmexChannelInsurance:
-		return f.formatInsurance(root.Data)
+		sret, err = f.formatInsurance(root.Data)
 	case streamcommons.BitmexChannelFunding:
-		return f.formatFunding(root.Data)
+		sret, err = f.formatFunding(root.Data)
 	default:
-		err = fmt.Errorf("FormatMessage: csvlike unsupported: %s", channel)
+		err = fmt.Errorf("FormatMessage: json unsupported: %s", channel)
+		return
+	}
+	// Apply post filter
+	ret = make([]Result, 0, len(sret))
+	for _, r := range sret {
+		if _, ok := f.targets[r.Channel]; ok {
+			ret = append(ret, r)
+		}
 	}
 	return
 }
 
 // IsSupported returns true if given channel is supported to be formatted using this formatter
 func (f *bitmexFormatter) IsSupported(channel string) bool {
+	pos := strings.IndexRune(channel, '_')
+	if pos == -1 {
+		// Raw channels are not supported, only symbol-wise channels are supported
+		return false
+	}
+	channel = channel[:pos]
 	return channel == "orderBookL2" || channel == "trade" || channel == "instrument" ||
 		channel == "liquidation" || channel == "settlement" || channel == "insurance" ||
 		channel == "funding"
@@ -554,4 +550,13 @@ func init() {
 	if serr != nil {
 		panic(fmt.Sprintf("init durationBaseTime: %v", serr))
 	}
+}
+
+func newBitmexFormatter(symbolWiseTargets []string) *bitmexFormatter {
+	f := new(bitmexFormatter)
+	f.targets = make(map[string]bool)
+	for _, ch := range symbolWiseTargets {
+		f.targets[ch] = true
+	}
+	return f
 }

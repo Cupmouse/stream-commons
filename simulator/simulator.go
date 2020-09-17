@@ -2,6 +2,9 @@ package simulator
 
 import (
 	"fmt"
+	"strings"
+
+	"github.com/exchangedataset/streamcommons"
 )
 
 // Snapshot is individual snapshot for a channel.
@@ -39,19 +42,44 @@ type Simulator interface {
 // filtering will be disabled subsequently all channel will be processed.
 func GetSimulator(exchange string, channels []string) (Simulator, error) {
 	switch exchange {
-	case "bitmex":
+	case streamcommons.ExchangeBitmex:
 		return newBitmexSimulator(channels), nil
-	case "bitflyer":
+	case streamcommons.ExchangeBitflyer:
 		return newBitflyerSimulator(channels), nil
-	case "bitfinex":
+	case streamcommons.ExchangeBitfinex:
 		return newBitfinexSimulator(channels), nil
-	case "binance":
+	case streamcommons.ExchangeBinance:
 		return newBinanceSimulator(channels), nil
-	case "bitbank":
-		return newBitbankSimulator(channels), nil
-	case "liquid":
+	case streamcommons.ExchangeLiquid:
 		return newLiquidSimulator(channels), nil
 	default:
 		return nil, fmt.Errorf("snapshot for exchange %s is not supported", exchange)
+	}
+}
+
+// ToSimulatorChannel converts raw channels (user specified) to simulator channels.
+func ToSimulatorChannel(exchange string, rawChannels []string) []string {
+	switch exchange {
+	case streamcommons.ExchangeBitmex:
+		// Construct unique list of raw channels
+		set := make(map[string]bool)
+		for _, ch := range rawChannels {
+			// Take prefix from full channel name
+			// Eg. orderBookL2_XBTUSD -> orderBookL2
+			if ri := strings.IndexRune(ch, '_'); ri != -1 {
+				set[ch[:ri]] = true
+			} else {
+				set[ch] = true
+			}
+		}
+		list := make([]string, len(set))
+		i := 0
+		for ch := range set {
+			list[i] = ch
+			i++
+		}
+		return list
+	default:
+		return rawChannels
 	}
 }

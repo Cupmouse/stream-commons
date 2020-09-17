@@ -217,3 +217,7 @@ func (f *bitflyerFormatter) IsSupported(channel string) bool {
 		strings.HasPrefix(channel, "lightning_executions_") ||
 		strings.HasPrefix(channel, "lightning_ticker_")
 }
+
+func newBitflyerFormatter() *bitflyerFormatter {
+	return new(bitflyerFormatter)
+}

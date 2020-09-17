@@ -2,9 +2,10 @@ package formatter
 
 import (
 	"fmt"
-)
+	"strings"
 
-var formatters = make(map[string]map[string]Formatter)
+	"github.com/exchangedataset/streamcommons"
+)
 
 // Formatter formats raw line into desired format.
 type Formatter interface {
@@ -15,32 +16,46 @@ type Formatter interface {
 
 // GetFormatter returns the right formatter for given parameters.
 func GetFormatter(exchange string, channels []string, format string) (Formatter, error) {
-	formats, ok := formatters[exchange]
-	if !ok {
-		return nil, fmt.Errorf("exchange '%s' is not supported", exchange)
-	}
-	formatter, ok := formats[format]
-	if !ok {
-		return nil, fmt.Errorf("format '%s' is not supported for exchange '%s'", format, exchange)
+	var f Formatter
+	switch format {
+	case "json":
+		switch exchange {
+		case streamcommons.ExchangeBinance:
+			f = newBinanceFormatter()
+		case streamcommons.ExchangeBitflyer:
+			f = newBitflyerFormatter()
+		case streamcommons.ExchangeBitmex:
+			// Converts raw channels (user specified) to formatter channels.
+			set := make(map[string]bool)
+			for _, ch := range channels {
+				if ri := strings.IndexRune(ch, '_'); ri != -1 {
+					set[ch] = true
+				} else {
+					set[ch] = true
+				}
+				// Ignore channels that does not have a symbol
+			}
+			targets := make([]string, len(set))
+			i := 0
+			for ch := range set {
+				targets[i] = ch
+				i++
+			}
+			f = newBitmexFormatter(targets)
+		case streamcommons.ExchangeLiquid:
+			f = newLiquidFormatter()
+		case streamcommons.ExchangeBitfinex:
+			f = newBitfinexFormatter()
+		default:
+			return nil, fmt.Errorf("format '%s' is not supported for exchange '%s'", format, exchange)
+		}
+	default:
+		return nil, fmt.Errorf("format '%s' is not supported", format)
 	}
 	for _, ch := range channels {
-		if !formatter.IsSupported(ch) {
+		if !f.IsSupported(ch) {
 			return nil, fmt.Errorf("channel '%s' of exchange '%s' is not supported for format '%s'", ch, exchange, format)
 		}
 	}
-	return formatter, nil
-}
-
-func init() {
-	formatters["bitflyer"] = make(map[string]Formatter)
-	formatters["bitfinex"] = make(map[string]Formatter)
-	formatters["bitmex"] = make(map[string]Formatter)
-	formatters["binance"] = make(map[string]Formatter)
-	formatters["liquid"] = make(map[string]Formatter)
-
-	formatters["bitflyer"]["json"] = new(bitflyerFormatter)
-	formatters["bitfinex"]["json"] = new(bitfinexFormatter)
-	formatters["bitmex"]["json"] = new(bitmexFormatter)
-	formatters["binance"]["json"] = new(binanceFormatter)
-	formatters["liquid"]["json"] = new(liquidFormatter)
+	return f, nil
 }
