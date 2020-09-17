@@ -287,7 +287,7 @@ func (f *binanceFormatter) formatRESTDepth(channel string, line []byte, symbol s
 		i++
 	}
 	for _, order := range depth.Bids {
-		fo := new(jsondef.BinanceDepth)
+		fo := new(jsondef.BinanceRestDepth)
 		fo.Symbol = symbolCap
 		fo.Price, serr = strconv.ParseFloat(order[0], 64)
 		if serr != nil {
@@ -457,4 +457,8 @@ func (f *binanceFormatter) IsSupported(channel string) bool {
 		stream == streamcommons.BinanceStreamTrade ||
 		stream == streamcommons.BinanceStreamTicker ||
 		stream == streamcommons.BinanceStreamRESTDepth
+}
+
+func newBinanceFormatter() *binanceFormatter {
+	return new(binanceFormatter)
 }
