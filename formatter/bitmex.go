@@ -533,12 +533,10 @@ func (f *bitmexFormatter) FormatMessage(channel string, line []byte) (ret []Resu
 
 // IsSupported returns true if given channel is supported to be formatted using this formatter
 func (f *bitmexFormatter) IsSupported(channel string) bool {
-	pos := strings.IndexRune(channel, '_')
-	if pos == -1 {
-		// Raw channels are not supported, only symbol-wise channels are supported
-		return false
+	if pos := strings.IndexRune(channel, '_'); pos != -1 {
+		// Symbol-wise channels are also supported
+		channel = channel[:pos]
 	}
-	channel = channel[:pos]
 	return channel == "orderBookL2" || channel == "trade" || channel == "instrument" ||
 		channel == "liquidation" || channel == "settlement" || channel == "insurance" ||
 		channel == "funding"
