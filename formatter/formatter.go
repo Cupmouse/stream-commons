@@ -6,6 +6,12 @@ import (
 	"github.com/exchangedataset/streamcommons"
 )
 
+// Result is the struct Formatter returns.
+type Result struct {
+	Channel string
+	Message []byte
+}
+
 // Formatter formats raw line into desired format.
 type Formatter interface {
 	FormatStart(urlStr string) ([]Result, error)
