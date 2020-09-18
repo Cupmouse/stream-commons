@@ -39,7 +39,7 @@ func (a *APIKey) CheckAvalability(db *sql.DB) error {
 }
 
 // IncrementUsed tries to increment used count tied to API key
-func (a *APIKey) IncrementUsed(db *sql.DB, amount int64) (incremented int64, err error) {
+func (a *APIKey) IncrementUsed(db *sql.DB, amount int) (incremented int, err error) {
 	if a.Demo {
 		err = errors.New("this is demo test apikey, can not perform quota increment")
 		return
@@ -65,7 +65,7 @@ func (a *APIKey) IncrementUsed(db *sql.DB, amount int64) (incremented int64, err
 }
 
 // CalcQuotaUsed returns how much quota will be decremented if a request of specified amount were processed
-func CalcQuotaUsed(amount int64) (incremented int64) {
+func CalcQuotaUsed(amount int) (incremented int) {
 	// request always consume 1kb of quota at minimun for spamming counter method
 	if amount < 1024 {
 		incremented = 1024

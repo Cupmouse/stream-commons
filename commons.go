@@ -37,7 +37,7 @@ func MakeResponse(statusCode int, body string) *events.APIGatewayProxyResponse {
 }
 
 // MakeLargeResponse makes response struct with large body, might do compression
-func MakeLargeResponse(statusCode int, body []byte, quotaUsed int64) (response *events.APIGatewayProxyResponse, err error) {
+func MakeLargeResponse(statusCode int, body []byte, quotaUsed int) (response *events.APIGatewayProxyResponse, err error) {
 	headers := make(map[string]string)
 
 	headers["Content-Type"] = "text/plain"
