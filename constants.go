@@ -9,6 +9,20 @@ const (
 	ExchangeLiquid   = "liquid"
 )
 
+// Bitfinex related
+const (
+	BitfinexChannelPrefixBook   = "book_"
+	BitfinexChannelPrefixTrades = "trades_"
+)
+
+// Bitflyer related
+const (
+	BitflyerChannelPrefixLightningExecutions    = "lightning_executions_"
+	BitflyerChannelPrefixLightningBoard         = "lightning_board_"
+	BitflyerchannelPrefixLightningBoardSnapshot = "lightning_board_snapshot_"
+	BitflyerchannelPrefixLightningTicker        = "lightning_ticker_"
+)
+
 // Bitmex related
 const (
 	BitmexChannelOrderBookL2 = "orderBookL2"

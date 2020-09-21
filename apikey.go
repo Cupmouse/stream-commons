@@ -39,38 +39,34 @@ func (a *APIKey) CheckAvalability(db *sql.DB) error {
 }
 
 // IncrementUsed tries to increment used count tied to API key
-func (a *APIKey) IncrementUsed(db *sql.DB, amount int) (incremented int, err error) {
+func (a *APIKey) IncrementUsed(db *sql.DB, cost int) (err error) {
 	if a.Demo {
-		err = errors.New("this is demo test apikey, can not perform quota increment")
-		return
+		return errors.New("IncrementUsed: this is demo test apikey, can not perform quota increment")
 	}
-	incremented = CalcQuotaUsed(amount)
-
 	// increase api-key's quota used bytes
-	res, serr := db.Exec("CALL exchangedataset.increment_apikey_used_now(?, ?)", a.Key, incremented)
+	res, serr := db.Exec("CALL exchangedataset.increment_apikey_used_now(?, ?)", a.Key, cost)
 	if serr != nil {
-		err = fmt.Errorf("Call failed: %v", err)
-		return
+		return fmt.Errorf("IncrementUsed: Call failed: %v", serr)
 	}
 	rows, serr := res.RowsAffected()
 	if serr != nil {
-		err = fmt.Errorf("RowsAffected returned error: %v", err)
-		return
+		return fmt.Errorf("IncrementUsed: RowsAffected returned error: %v", serr)
 	}
-	if rows != 1 {
-		err = errors.New("Too many or less rows affected: API key might not exist")
-		return
+	// This depends on the procedure in mysql
+	// SET counts as rowsAffected + actual update
+	if rows != 2 {
+		return errors.New("IncrementUsed: Too many or less rows affected: API key might not exist")
 	}
 	return
 }
 
-// CalcQuotaUsed returns how much quota will be decremented if a request of specified amount were processed
-func CalcQuotaUsed(amount int) (incremented int) {
-	// request always consume 1kb of quota at minimun for spamming counter method
-	if amount < 1024 {
-		incremented = 1024
-	} else {
-		incremented = amount
+// CalcCost returns how much quota should be decremented if a request of specified amount were processed
+func CalcCost(others int, orderbook int) (cost int) {
+	// Orderbook costs 1/5
+	cost = others + orderbook/5
+	// Request always consume 1kb of quota at minimun for spamming counter method
+	if cost < 1024 {
+		cost = 1024
 	}
 	return
 }

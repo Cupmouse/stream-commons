@@ -32,10 +32,10 @@ func (f *bitflyerFormatter) FormatStart(urlStr string) ([]Result, error) {
 
 func (f *bitflyerFormatter) formatBoard(channel string, messageRaw json.RawMessage) ([]Result, error) {
 	var pair string
-	if strings.HasPrefix(channel, "lightning_board_snapshot_") {
-		pair = channel[len("lightning_board_snapshot_"):]
+	if strings.HasPrefix(channel, streamcommons.BitflyerchannelPrefixLightningBoardSnapshot) {
+		pair = channel[len(streamcommons.BitflyerchannelPrefixLightningBoardSnapshot):]
 	} else {
-		pair = channel[len("lightning_board_"):]
+		pair = channel[len(streamcommons.BitflyerChannelPrefixLightningBoard):]
 	}
 
 	message := new(jsonstructs.BitflyerBoardParamsMessage)
@@ -83,7 +83,7 @@ func (f *bitflyerFormatter) formatBoard(channel string, messageRaw json.RawMessa
 
 func (f *bitflyerFormatter) formatExecutions(channel string, messageRaw json.RawMessage) ([]Result, error) {
 	// pair, price, size
-	pair := channel[len("lightning_executions_"):]
+	pair := channel[len(streamcommons.BitflyerChannelPrefixLightningExecutions):]
 
 	orders := make([]jsonstructs.BitflyerExecutionsParamMessageElement, 0, 10)
 	err := json.Unmarshal(messageRaw, &orders)
@@ -167,7 +167,7 @@ func (f *bitflyerFormatter) FormatMessage(channel string, line []byte) ([]Result
 	}
 	if subscribe.Result {
 		// an response for subscribe request
-		if strings.HasPrefix(channel, "lightning_board_") {
+		if strings.HasPrefix(channel, streamcommons.BitflyerChannelPrefixLightningBoard) {
 			// lightning_board_snapshot will also return the same header
 			return []Result{
 				Result{
@@ -175,14 +175,14 @@ func (f *bitflyerFormatter) FormatMessage(channel string, line []byte) ([]Result
 					Message: jsondef.TypeDefBitflyerBoard,
 				},
 			}, nil
-		} else if strings.HasPrefix(channel, "lightning_executions_") {
+		} else if strings.HasPrefix(channel, streamcommons.BitflyerChannelPrefixLightningExecutions) {
 			return []Result{
 				Result{
 					Channel: channel,
 					Message: jsondef.TypeDefBitflyerExecutions,
 				},
 			}, nil
-		} else if strings.HasPrefix(channel, "lightning_ticker_") {
+		} else if strings.HasPrefix(channel, streamcommons.BitflyerchannelPrefixLightningTicker) {
 			return []Result{
 				Result{
 					Channel: channel,
@@ -198,11 +198,11 @@ func (f *bitflyerFormatter) FormatMessage(channel string, line []byte) ([]Result
 		if serr != nil {
 			return nil, fmt.Errorf("FormatMessage: line: %v", err)
 		}
-		if strings.HasPrefix(channel, "lightning_board_") {
+		if strings.HasPrefix(channel, streamcommons.BitflyerChannelPrefixLightningBoard) {
 			return f.formatBoard(channel, root.Params.Message)
-		} else if strings.HasPrefix(channel, "lightning_executions_") {
+		} else if strings.HasPrefix(channel, streamcommons.BitflyerChannelPrefixLightningExecutions) {
 			return f.formatExecutions(channel, root.Params.Message)
-		} else if strings.HasPrefix(channel, "lightning_ticker_") {
+		} else if strings.HasPrefix(channel, streamcommons.BitflyerchannelPrefixLightningTicker) {
 			return f.formatTicker(channel, root.Params.Message)
 		} else {
 			return nil, fmt.Errorf("csvlike unsupported: %s", channel)
@@ -212,10 +212,10 @@ func (f *bitflyerFormatter) FormatMessage(channel string, line []byte) ([]Result
 
 // IsSupported returns true if message from given channel is supported to be formatted by this formatted
 func (f *bitflyerFormatter) IsSupported(channel string) bool {
-	return strings.HasPrefix(channel, "lightning_board_snapshot_") ||
-		strings.HasPrefix(channel, "lightning_board_") ||
-		strings.HasPrefix(channel, "lightning_executions_") ||
-		strings.HasPrefix(channel, "lightning_ticker_")
+	return strings.HasPrefix(channel, streamcommons.BitflyerchannelPrefixLightningBoardSnapshot) ||
+		strings.HasPrefix(channel, streamcommons.BitflyerChannelPrefixLightningBoard) ||
+		strings.HasPrefix(channel, streamcommons.BitflyerChannelPrefixLightningExecutions) ||
+		strings.HasPrefix(channel, streamcommons.BitflyerchannelPrefixLightningTicker)
 }
 
 func newBitflyerFormatter() *bitflyerFormatter {

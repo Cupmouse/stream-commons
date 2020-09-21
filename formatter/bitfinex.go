@@ -21,7 +21,7 @@ func (f *bitfinexFormatter) FormatStart(urlStr string) ([]Result, error) {
 }
 
 func (f *bitfinexFormatter) formatBook(channel string, line []byte) ([]Result, error) {
-	pair := channel[len("book_"):]
+	pair := channel[len(streamcommons.BitfinexChannelPrefixBook):]
 
 	unmarshaled := jsonstructs.BitfinexBook{}
 	err := json.Unmarshal(line, &unmarshaled)
@@ -99,7 +99,7 @@ func (f *bitfinexFormatter) formatBook(channel string, line []byte) ([]Result, e
 }
 
 func (f *bitfinexFormatter) formatTrades(channel string, line []byte) (formatted []Result, err error) {
-	pair := channel[len("trades_"):]
+	pair := channel[len(streamcommons.BitfinexChannelPrefixTrades):]
 
 	unmarshal := jsonstructs.BitfinexTrades{}
 	err = json.Unmarshal(line, &unmarshal)
@@ -197,14 +197,14 @@ func (f *bitfinexFormatter) FormatMessage(channel string, line []byte) (formatte
 	err = json.Unmarshal(line, &subscribe)
 	if err == nil && subscribe.Event == "subscribed" {
 		// an response for subscribe request
-		if strings.HasPrefix(channel, "book_") {
+		if strings.HasPrefix(channel, streamcommons.BitfinexChannelPrefixBook) {
 			formatted = []Result{
 				Result{
 					Channel: channel,
 					Message: jsondef.TypeDefBitfinexBook,
 				},
 			}
-		} else if strings.HasPrefix(channel, "trades_") {
+		} else if strings.HasPrefix(channel, streamcommons.BitfinexChannelPrefixTrades) {
 			formatted = []Result{
 				Result{
 					Channel: channel,
@@ -217,9 +217,9 @@ func (f *bitfinexFormatter) FormatMessage(channel string, line []byte) (formatte
 		return
 	}
 
-	if strings.HasPrefix(channel, "book_") {
+	if strings.HasPrefix(channel, streamcommons.BitfinexChannelPrefixBook) {
 		formatted, err = f.formatBook(channel, line)
-	} else if strings.HasPrefix(channel, "trades_") {
+	} else if strings.HasPrefix(channel, streamcommons.BitfinexChannelPrefixTrades) {
 		formatted, err = f.formatTrades(channel, line)
 	} else {
 		err = fmt.Errorf("FormatMessage: json unsupported channel: %s", channel)
@@ -229,8 +229,8 @@ func (f *bitfinexFormatter) FormatMessage(channel string, line []byte) (formatte
 
 // IsSupported returns true if specified channel is supported to be formatted using this formatter
 func (f *bitfinexFormatter) IsSupported(channel string) bool {
-	return strings.HasPrefix(channel, "book_") ||
-		strings.HasPrefix(channel, "trades_")
+	return strings.HasPrefix(channel, streamcommons.BitfinexChannelPrefixBook) ||
+		strings.HasPrefix(channel, streamcommons.BitfinexChannelPrefixTrades)
 }
 
 func newBitfinexFormatter() *bitfinexFormatter {
